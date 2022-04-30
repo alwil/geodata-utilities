@@ -2,7 +2,6 @@
 
 import re
 import os
-import matplotlib.pyplot as plt
 
 
 # Hulpfuncties
@@ -217,20 +216,36 @@ class Gef2OpenClass:
                 err = 'MissingDatablok'
         except:
             yield err
-    
+
+    # Purpose: geeft een iterator met alle waarden voor een bepaalde kolom in een data block
+    def get_column_iter(self, i_Kol):
+        try:
+            if 'datablok' in self.headerdict:
+                if len(self.headerdict['datablok'][1]) >= i_Kol - 1:
+                    void = self.get_column_void(i_Kol)
+                    for i_Rij in range(1, 1 + int(self.get_nr_scans())):
+                        value = self.get_data(i_Kol, i_Rij)
+                        if value == void:  #Replace nodata value for None
+                            value = None
+                        yield value
+                else:
+                    err = 'MissingKol'
+            else:
+                err = 'MissingDatablok'
+        except:
+            yield err
+
     def get_data_column(self, i_Kol):
         """extract data from file"""
-        depth = []
         value = []
-        for a in self.get_data_iter(i_Kol):
-            depth.append(a[0])
-            value.append(a[1])
+        for a in self.get_column_iter(i_Kol):
+            value.append(a)
 
         column_info = self.get_column_info(i_Kol)
         unit = column_info[1]
         name = column_info[2]
 
-        return depth, value, unit, name
+        return value, unit, name
 
     # Purpose: Of gegeven #MEASUREMENTTEXT index aanwezig
     def get_measurementtext_flag(self, i_Index):
@@ -660,10 +675,11 @@ class Gef2OpenClass:
                         if EOH is True and par != 'EOH':
                             tel = tel + 1
                             data = par
-                            data = re.sub(';!', '', data)  # einde dataregel. moet hier een test op?
-                            data = re.sub("'", "", data)
-                            data = re.sub('"', '', data)
-                            data = re.split(';|\ |\t|\n', data)
+                            data = re.sub(';!', '', data)       # einde dataregel. moet hier een test op?
+                            data = re.sub("'", "", data)        # remove '
+                            data = re.sub('"', '', data)        # remove "
+                            data = data.strip()                 # strip front and trailing spaces
+                            data = re.split(';|\ |\t|\n', data) # split up the data 
                             a2 = []
                             for i in data:
                                 if is_number(i):
@@ -691,92 +707,3 @@ class Gef2OpenClass:
                     i_sBestandGef))
             return False
     
-    def plot_value(self, i_Kol):
-        
-        depth, value, unit, name = self.get_data_column(2)
-        
-        fig, ax = plt.subplots(1, 1, figsize=(4, 8))
-        fontsize=10
-
-        # ax=plt.subplot(11)    # Longitudinal section of the waterway
-        ax.invert_yaxis()
-        plt.plot(value, depth)
-
-        plt.xlabel(name + ' [' + unit + ']', fontsize=fontsize, fontweight='bold')
-        plt.ylabel('Depth [m]', fontsize=fontsize, fontweight='bold')
-        plt.title(self.get_testid(), fontsize=fontsize, fontweight='bold')
-        
-        plt.show()
-
-    # Purpose: Of een bestand geplot kan worden
-    def is_plotable(self):
-        return 'datmoetenwenogeensuitzoeken'
-
-    # Purpose: Of een bepaald aspect van een bestand correct is
-    # Parms  : Toegestaan: 'HEADER', 'DATA', 'GEF-CPT-Report','GEF-BORE-Report'
-    def test_gef(self, i_sAspect):
-        return 'datmoetenwenogeensuitzoeken'
-
-
-if __name__ == '__main__':
-    # This is used for debugging. Using this separated structure makes it much
-    # easier to debug using standard Python development tools.
-
-    myGef = Gef2OpenClass()
-    myGef.read_gef('C:/GIS/1248421/GEFTEST01.gef')
-
-    # Variables for testing
-    i_Kol = 2
-    iRij = 1
-    i_Index = 1
-    i_iQtyNumber = 1
-    i_sAspect = 1
-
-    # PrettyPrinter for printing dictionary
-    import pprint
-    pp = pprint.PrettyPrinter(indent=4)
-
-    # Testing all outcome
-    print('gbr_is_gbr = {}'.format(myGef.gbr_is_gbr()))
-    print('gcr_is_gcr = {}'.format(myGef.gcr_is_gcr()))
-    print('get_companyid_flag = {}'.format(myGef.get_companyid_flag()))
-    print('get_column = {}'.format(myGef.get_column()))
-    print('get_column_flag = {}'.format(myGef.get_column_flag()))
-    print('get_companyid_Name = {}'.format(myGef.get_companyid_Name()))
-    print('get_data = {}'.format(myGef.get_data(i_Kol, iRij)))
-    print('get_data_iter = {}'.format(myGef.get_data_iter(i_Kol)))
-    print('get_measurementtext_flag = {}'.format(myGef.get_measurementtext_flag(i_Index)))
-    print('get_measurementvar_flag = {}'.format(myGef.get_measurementvar_flag(i_Index)))
-    print('get_measurementtext_Tekst = {}'.format(myGef.get_measurementtext_Tekst(i_Index)))
-    print('get_measurementvar_Value = {}'.format(myGef.get_measurementvar_Value(i_Index)))
-    print('get_nr_scans = {}'.format(myGef.get_nr_scans()))
-    print('get_parent_flag = {}'.format(myGef.get_parent_flag()))
-    print('get_parent_reference = {}'.format(myGef.get_parent_reference()))
-    print('get_procedurecode_flag = {}'.format(myGef.get_procedurecode_flag()))
-    print('get_procedurecode_Code = {}'.format(myGef.get_procedurecode_Code()))
-    print('get_projectid_flag = {}'.format(myGef.get_projectid_flag()))
-    print('get_projectid_Number = {}'.format(myGef.get_projectid_Number()))
-    print('get_reportcode_flag = {}'.format(myGef.get_reportcode_flag()))
-    print('get_reportcode_Code = {}'.format(myGef.get_reportcode_Code()))
-    print('get_startdate_flag = {}'.format(myGef.get_startdate_flag()))
-    print('get_startdate_Yyyy = {}'.format(myGef.get_startdate_Yyyy()))
-    print('get_startdate_Mm = {}'.format(myGef.get_startdate_Mm()))
-    print('get_startdate_Dd = {}'.format(myGef.get_startdate_Dd()))
-    print('get_xyid_flag = {}'.format(myGef.get_xyid_flag()))
-    print('get_xyid_X = {}'.format(myGef.get_xyid_X()))
-    print('get_xyid_Y = {}'.format(myGef.get_xyid_Y()))
-    print('get_zid_flag = {}'.format(myGef.get_zid_flag()))
-    print('get_zid_Z = {}'.format(myGef.get_zid_Z()))
-    print('qn2column = {}'.format(myGef.qn2column(i_iQtyNumber)))
-    print('is_plotable = {}'.format(myGef.is_plotable()))
-    print('test_gef = {}'.format(myGef.test_gef(i_sAspect)))
-
-    print('qn2column 1 = {}'.format(myGef.qn2column(1)))
-    print('qn2column 2 = {}'.format(myGef.qn2column(2)))
-    print('qn2column 3 = {}'.format(myGef.qn2column(3)))
-    print('qn2column 6 = {}'.format(myGef.qn2column(6)))
-    print('qn2column 8 = {}'.format(myGef.qn2column(8)))
-    print('qn2column 4 = {}'.format(myGef.qn2column(4)))
-    print('qn2column corrected depth = {}'.format(myGef.qn2column(1, get_corrected_depth=True)))
-
-    pp.pprint(myGef.headerdict)
