@@ -706,4 +706,33 @@ class Gef2OpenClass:
                 "%s Headerdict() in UtlGefOpen.py geef IndexError: fout bij uitlezen gef" % os.path.basename(
                     i_sBestandGef))
             return False
-    
+    def test_gef(self):
+        # test if COLUMN is in the headerdict
+        assert 'REPORTCODE' in self.headerdict, 'REPORTCODE not found'
+
+        if 'GEF-BORE-Report' in self.headerdict['REPORTCODE']:
+            return
+        elif 'GEF-CPT-Report' in self.headerdict['REPORTCODE']:
+            return
+        elif 'GEF-Anker-data' in self.headerdict['REPORTCODE']:
+            # *** test presence of key labels ***
+            # test if COLUMN is in the headerdict
+            assert 'COLUMN' in self.headerdict, 'COLUMN not found'
+
+            # test if COLUMNINFO is in the headerdict
+            assert 'COLUMNINFO' in self.headerdict, 'COLUMNINFO not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'COLUMNVOID' in self.headerdict, 'COLUMNVOID not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'datablok' in self.headerdict, 'datablok not found'
+
+            # *** test internal logic of the data
+            # test if there are as many COLUMNINFO's as you would expect from the field COLUMN
+            assert self.headerdict['COLUMN'][0]==len(self.headerdict['COLUMNINFO']), 'COLUMNS does not match the number of COLUMNINFO'
+
+            # test if the LASTSCAN value euqals the lenght of the data block
+            assert self.headerdict['LASTSCAN'][0]==len(self.headerdict['datablok']), 'LASTSCAN does not match the length of datablok' 
+            
+            return True
