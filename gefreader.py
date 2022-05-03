@@ -712,8 +712,42 @@ class Gef2OpenClass:
 
         if 'GEF-BORE-Report' in self.headerdict['REPORTCODE']:
             return
+        
         elif 'GEF-CPT-Report' in self.headerdict['REPORTCODE']:
-            return
+            # standards according to:
+            # https://publicwiki.deltares.nl/display/STREAM/GEF-CPT?preview=/102204318/102334492/GEF-CPT.pdf
+            
+            # *** test presence of key labels: file tracing ***
+            assert 'GEFID' in self.headerdict, 'GEFID not found'
+            assert 'COMPANYID' in self.headerdict, 'COMPANYID not found'
+            assert 'FILEDATE' in self.headerdict, 'FILEDATE not found'
+            assert 'FILEOWNER' in self.headerdict, 'FILEOWNER not found'
+            assert 'PROJECTID' in self.headerdict, 'PROJECTID not found'
+            assert 'TESTID' in self.headerdict, 'TESTID not found'
+            assert 'ZID' in self.headerdict, 'ZID not found'
+                        
+            # *** test presence of key labels: data descriptive ***
+            # test if COLUMN is in the headerdict
+            assert 'COLUMN' in self.headerdict, 'COLUMN not found'
+
+            # test if COLUMNINFO is in the headerdict
+            assert 'COLUMNINFO' in self.headerdict, 'COLUMNINFO not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'COLUMNVOID' in self.headerdict, 'COLUMNVOID not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'datablok' in self.headerdict, 'datablok not found'
+
+            # *** test internal logic of the data
+            # test if there are as many COLUMNINFO's as you would expect from the field COLUMN
+            assert self.headerdict['COLUMN'][0]==len(self.headerdict['COLUMNINFO']), 'COLUMNS does not match the number of COLUMNINFO'
+
+            # test if the LASTSCAN value euqals the lenght of the data block
+            assert self.headerdict['LASTSCAN'][0]==len(self.headerdict['datablok']), 'LASTSCAN does not match the length of datablok' 
+            
+            
+            return True
         elif 'GEF-Anker-data' in self.headerdict['REPORTCODE']:
             # *** test presence of key labels ***
             # test if COLUMN is in the headerdict
