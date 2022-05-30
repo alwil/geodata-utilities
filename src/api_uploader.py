@@ -10,76 +10,145 @@ from config import AW_KEY, AW_KEY_SAND
 # PREP - URL AND TOKENS
 ## ----------------------------------------------------------------------------
 
-## SANDBOX API URL & Token
-sand_url   = "https://api.figsh.com/v2/" 
-sand_token = AW_KEY_SAND
+# Give user choice to choose between the sandbox and 4TU
+def choose_entry_mode():
+    '''
+    Function allows the user to choose between the Sandbox and main 4TU environment 
+    
+    '''
 
-# 4TU API URL & Token
-fig_url   = "https://api.figshare.com/v2/" 
-fig_token = AW_KEY
+    sbox_choice = input("Do you want to continue in the Sandbox environment? [Y/N]:") 
+    # Clean input
+    sbox_choice_clean = re.sub("[^a-z]","",sbox_choice.lower())
+    
+    # Allow only y/yes n/no 
+    assert sbox_choice_clean in ['y', 'yes', 'n', 'no'] ,'I did not understand your selection. Please try again.'
+    
+    if sbox_choice_clean[0] == 'y':
+        env_choice = "sandbox" 
+    else: 
+        env_choice = "4TU"
+    
+    return(env_choice)
+
+# Get the right URL
+def get_url(env_choice):
+    '''
+    The function returns the API URL depending on which environment the user chose to upload the files 
+    
+    Parameters
+    ----------
+    env_choice : str
+        The environment the programme is to interact with ('4TU' or 'sandbox')
+        '''
+
+    assert env_choice in {'4TU' , 'sandbox'}, 'No valid environment chosen.'
+
+    # Get the right API depending on the environment ( 4TU, Sandbox)
+    if env_choice == 'sandbox':
+        api_url = "https://api.figsh.com/v2/" 
+    else: 
+        api_url = "https://api.figshare.com/v2/"
+
+    # Return the right api
+    return(api_url)
+    
+# Request the personal token of the user 
+def get_token(env_choice):
+    '''
+    The function requests the personal token from the user 
+    
+    Parameters
+    ----------
+    env_choice : str
+        The environment the programme is to interact with ('4TU' or 'sandbox')
+        '''
+
+    assert env_choice in {'4TU' , 'sandbox'}, 'No valid environment chosen.'
+
+    api_token = input("Provide your presonal token for the" + env_choice + " environment")
+    
+    # Return the right api
+    return(api_token)
 
 ## ----------------------------------------------------------------------------
 # PREP - ADDITIONAL INFO - LICENCE AND CATEGORY IDs
 # /licence and category IDs needed to update the metadata/
 ## ----------------------------------------------------------------------------
 
-##-----------------------------------------------------------------------------
-# LICENCES 
-##-----------------------------------------------------------------------------
 
-# SANDBOX 
-response = requests.get(
-    url = sand_url+"account/licenses", # public licences list
-    #url = sand_url+"licenses", # private licences list
-    headers = {
-        "Authorization": f"token {sand_token}"
-    })
+# Function to get a list of licences available at 4TU 
+def get_licences(api_url, api_token ):
+    '''
+    Function retrieves the list of licences available in the repository depending on the environment chosen
+    
+    Parameters
+    ----------
+    api_url : str
+        The URL, depending on the choice of the environment
+    api_token : str
+        The personal token of the user    
+    ''' 
+    response = requests.get(
+        url = api_url+"account/licenses", # private licences list
+        headers = {"Authorization": f"token {api_token}"}
+        )
+    
+    # Retrun list of licences available together with thier IDs ( needed for metadata)   
+    return(response.json() )
 
-sand_licences = response.json() # list of licences available together with thier IDs ( needed for metadata)
-#sand_licences
+# Function to get a list of licences available at 4TU 
+def get_categories(api_url, api_token ):
+    '''
+    Function retrieves the list of categories available in the repository depending on the environment chosen
+    
+    Parameters
+    ----------
+    api_url : str
+        The URL, depending on the choice of the environment
+    api_token : str
+        The personal token of the user    
+    ''' 
+    response = requests.get(
+        url = api_url+"account/categories",
+        headers = {"Authorization": f"token {api_token}"}
+        )
 
-# 4TU
-response = requests.get(
-    url = fig_url+"licenses" ,
-    headers = {
-        "Authorization": f"token {fig_token}"
-    })
-
-fig_licences = response.json() # list of licences available together with thier IDs ( needed for metadata)
-#fig_licences
-
-
-
-##-----------------------------------------------------------------------------
-# CATEGORIES 
-##-----------------------------------------------------------------------------
-
-# SANDBOX
-response = requests.get(
-    url = sand_url+"account/categories",
-    headers = {
-        "Authorization": f"token {sand_token}"
-    })
-
-sand_cat = response.json()
-#sand_cat
-
-# 4TU
-response = requests.get(
-    url = fig_url+"account/categories",
-    headers = {
-        "Authorization": f"token {fig_token}"
-    })
-
-fig_cat = response.json()
-sand_cat
+    # Retrun list of licences available together with thier IDs ( needed for metadata)   
+    return( response.json() )
 
 ## ----------------------------------------------------------------------------
 # CREATE AN ARTICLE IN A 4TU
 ## ----------------------------------------------------------------------------
 
-# Define metadata
-art_title = 'GEF test 5'
+def get_collection_type():
+    '''
+    Function requests the user to provide input regarding the collection he wants to upload the data to,
+    asserts the selected choice and retruns the selection in form of a string 
+    
+    '''
+    col_choices = ['Grout', 'XXX', 'YYY', 'ZZZ']
+    input_string = ''
+    
+    for i, var in enumerate(col_choices):
+         input_string += '\n'+ str(i) + '-' + var  
+    
+    input_string = "Which collection would you upload the datasets to?" + input_string + '\n'
+    coll_type = input(input_string)
+    
+    coll_type_clean = int(re.sub("[^0-9]","",coll_type )) #  clean from unwanted characters
+    
+    assert coll_type_clean in list(range(0, len(col_choices) )), 'Wrong selection. Try again.'
+    
+    col_chosen = col_choices[coll_type_clean]
+
+    return(col_chosen)
+
+
+def request_metadata():
+    
+    # Define metadata
+    art_title = input('Article title:')
 art_license = 1
 art_keywords = ['tag2', 'tag2', 'tag3']
 art_description = 'description of my article'  
