@@ -10,21 +10,25 @@ from config import AW_KEY, AW_KEY_SAND
 # PREP - URL AND TOKENS
 ## ----------------------------------------------------------------------------
 
+def yes_no_input(user_input):
+        # Clean input
+    user_input_clean = re.sub("[^a-z]","",user_input.lower())
+    
+    # Allow only y/yes n/no 
+    assert user_input_clean in ['y', 'yes', 'n', 'no'] ,'I did not understand your selection. Please try again.'
+    return(user_input_clean[0])
+
 # Give user choice to choose between the sandbox and 4TU
 def choose_entry_mode():
     '''
     Function allows the user to choose between the Sandbox and main 4TU environment 
     
     '''
-
     sbox_choice = input("Do you want to continue in the Sandbox environment? [Y/N]:") 
     # Clean input
-    sbox_choice_clean = re.sub("[^a-z]","",sbox_choice.lower())
+    sbox_choice_clean = yes_no_input(sbox_choice)
     
-    # Allow only y/yes n/no 
-    assert sbox_choice_clean in ['y', 'yes', 'n', 'no'] ,'I did not understand your selection. Please try again.'
-    
-    if sbox_choice_clean[0] == 'y':
+    if sbox_choice_clean == 'y':
         env_choice = "sandbox" 
     else: 
         env_choice = "4TU"
@@ -76,7 +80,6 @@ def get_token(env_choice):
 # /licence and category IDs needed to update the metadata/
 ## ----------------------------------------------------------------------------
 
-
 # Function to get a list of licences available at 4TU 
 def get_licences(api_url, api_token ):
     '''
@@ -127,7 +130,7 @@ def get_collection_type():
     asserts the selected choice and retruns the selection in form of a string 
     
     '''
-    col_choices = ['Grout', 'XXX', 'YYY', 'ZZZ']
+    col_choices = ['grout', 'XXX', 'YYY', 'ZZZ']
     input_string = ''
     
     for i, var in enumerate(col_choices):
@@ -140,25 +143,81 @@ def get_collection_type():
     
     assert coll_type_clean in list(range(0, len(col_choices) )), 'Wrong selection. Try again.'
     
-    col_chosen = col_choices[coll_type_clean]
+    collection_chosen = col_choices[coll_type_clean]
 
-    return(col_chosen)
+    return(collection_chosen)
 
 
-def request_metadata():
-    
-    # Define metadata
-    art_title = input('Article title:')
-art_license = 1
-art_keywords = ['tag2', 'tag2', 'tag3']
-art_description = 'description of my article'  
-art_categories =  [ 13555, 13554 ] # Geophysics, Geodesy 
-art_custom_fields = {"Organizations": "TU Delft - Delft University of Technology;\nTU Delft, Faculty of Civil Engineering and Geosciences",
+def request_additional_metadata(collection_chosen
+#, description, geo, geo_long, geo_lat, time_coverage, org, anchortype, testtype, locationz
+):
+   ''' Function gathers the needed metadata ( not retrieved from GEF file ) and returns a json file needed for the POST request
+  
+   Parameters
+    ----------
+    collection_chosen : str
+        The chosen collection (e.g. 'grout')
+    description : str
+        The personal token of the user
+    geo
+    geo_long
+    geo_lat 
+    time_coverage
+   ''' 
+   # Define metadata
+   # 1. Title for the moment as an inputation - can be retrieved from the GEF file directly
+   art_title = input('Article title:')
+   # 2. Licence
+   art_license = 50 # verify if can be hardcoded
+
+   # 3. Authors 
+   add_authors =input("Does this dataset have any additional authors (Y/N)?" )
+ 
+    # Clean input
+   add_authors_clean = yes_no_input(add_authors)
+
+   if add_authors_clean == 'y':
+       authors_input = input("Provide author names, separated by a coma") 
+       authors_input_list = authors_input.split(sep = ',')
+       authors_input_list_clean = list(map(str.strip, authors_input_list))
+
+       art_authors =  [
+     {
+          "name": 'Trinity'
+        },
+        {
+          "name": 'Neo'
+        },
+        {
+          "name": "John Doe"
+        }
+        ]
+
+
+   # 4. Key words
+   collection_tag = collection_chosen # collection tag
+   anchortype_tag = "anchortype" + anchortype
+   testtype_tag = "anchortype" + testtype
+   locationz_tag = "locationz" + locationz
+   art_keywords = [collection_tag, anchortype_tag, testtype_tag, locationz_tag, locationz_tag  ]
+
+   # 5. Formats
+   coll_data_formats = {'grout':'GEF', 'XXX': 'foo', 'YYY': 'bar', 'ZZZ': 'baz'} 
+   art_format = coll_data_formats[collection_tag] # data format depending on the chosen collection
+
+
+
+
+   
+
+   art_description = 'description of my article'  
+   art_categories =  [ 13555, 13554 ] # Geophysics, Geodesy 
+   art_custom_fields = {"Organizations": "TU Delft - Delft University of Technology;\nTU Delft, Faculty of Civil Engineering and Geosciences",
                  "Time coverage": "2022-01-01",
                  "Geolocation"  : "Cabauw Experimental Site for Atmospheric Research (CESAR): Meteo mast",
                  "Geolocation Longitude": "4.926",
                  "Geolocation Latitude" : "51.97",
-                 "Format"       : "media types: application/x-netcdf"}
+                 "Format"       : "media types: application/"+ art_format}
 
 
 # Send the POST response to create the article 
