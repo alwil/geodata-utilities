@@ -30,8 +30,11 @@ def choose_entry_mode():
     
     if sbox_choice_clean == 'y':
         env_choice = "sandbox" 
+        print('Sandbox environment chosen')
     else: 
         env_choice = "4TU"
+        print('Production environment chosen')
+
     
     return(env_choice)
 
@@ -75,11 +78,6 @@ def get_token(env_choice):
     # Return the right api
     return(api_token)
 
-## ----------------------------------------------------------------------------
-# PREP - ADDITIONAL INFO - LICENCE AND CATEGORY IDs
-# /licence and category IDs needed to update the metadata/
-## ----------------------------------------------------------------------------
-
 # Function to get a list of licences available at 4TU 
 def get_licences(api_url, api_token ):
     '''
@@ -120,10 +118,6 @@ def get_categories(api_url, api_token ):
     # Retrun list of licences available together with thier IDs ( needed for metadata)   
     return( response.json() )
 
-## ----------------------------------------------------------------------------
-# CREATE AN ARTICLE IN A 4TU
-## ----------------------------------------------------------------------------
-
 def get_collection_type():
     '''
     Function requests the user to provide input regarding the collection he wants to upload the data to,
@@ -147,193 +141,240 @@ def get_collection_type():
 
     return(collection_chosen)
 
+def request_authors():
+    ''' 
+    Requests information about additional authors 
 
-def request_additional_metadata(collection_chosen
-#, description, geo, geo_long, geo_lat, time_coverage, org, anchortype, testtype, locationz
-):
+    Returns
+    -----------
+        art_authors: list
+            list of dictionaries with authors' names
+    
+    '''
+    # Intro 
+    print("You're a few steps away from publishing your dataset. Before that, you need to provide some additional information about your dataset....")
+
+    # Verify if there are additional authors 
+    add_authors =input("Does this dataset have any additional authors, apart from you (Y/N)?" )
+ 
+    # Clean input
+    add_authors_clean = yes_no_input(add_authors)
+
+    # If additional authors - ask for input and write as a list of dictionaries
+    art_authors = []
+
+    if add_authors_clean == 'y':
+        authors_input = input("Provide author names, separated by a coma") 
+        authors_input_list = authors_input.split(sep = ',')
+        authors_input_list_clean = list(map(str.strip, authors_input_list))
+        for author in authors_input_list_clean:
+            info = {"name": author }
+        art_authors.append(info)
+    else:
+        print("Understood, no additional authors.")
+    
+    return(art_authors)
+
+def retrieve_metadata(file):
+    ''' Retrieves metadata fields used in 4TU upload from the .GEF file
+
+    Parameteres
+    --------
+    gef_file: str
+        Name of the GEF file used for metadata extraction 
+
+    Returns
+    --------
+    retrieved_dict: list 
+        Metadata fields retrieved from a gef file: description
+    '''
+
+# - all metadata pulled from the .GEF file), LOCATIONAME
+#    geo_long : float 
+#        Geographic longitude in decimal degrees; East is positive, West is negative; Values: -180 to 180 (LOCATION X)
+#    geo_lat : float
+#            Geographic longitude in decimal degrees; North is positive, South is negative; Values: -90 to 90 (LOCATION Y)
+#    dataset_date : date
+#        Data gathering date as indicated in the .GEF file  (STARTDATE)
+#    org: str
+#        Organisation contributing to the collection  (COMPANYID)
+#    anchortype: str
+#        self-drilling, stranded or screw injection (ANCHORTYPE)
+#    testtype: str
+#        investigation, suitability or acceptance (TESTTYPE)
+#    locationz : float
+#        The depth of drilling? (LOCATIONZ)
+        
+    #set up empty variables
+    art_title = ''
+    art_description = ''
+    art_keywords = []
+    art_date = ''
+    art_location = ''
+    geo_lon = ''
+    geo_lat = ''
+    company = ''
+
+    # create patterns to search text
+    title = re.compile(r'#PROJECT')
+    keywords = re.compile(r'TESTTYPE= |ANCHORTYPE= |LOCATIONZ= ')
+    date = re.compile(r'#STARTDATE=')
+    location = re.compile(r'#LOCATIONAME= ')
+    lon = re.compile(r'#LOCATIONY= ')
+    lat = re.compile(r'#LOCATIONX= ')
+    companyid = re.compile(r'#COMPANYID= ')
+
+    #save metadata as description
+    with open (file, 'rt') as myfile:
+        art_description = myfile.read().split('#EOH=',1)[0]
+
+    # save metadata values as variables
+    with open (file, 'rt') as myfile:
+        for line in myfile:
+            if keywords.search(line) != None:
+                string = re.sub(r" ", "", line)
+                art_keywords.append(string.rstrip('\n').replace('#',""))
+            if title.search(line) != None:
+                art_title = line.rstrip('\n').replace('#PROJECT= ',"")
+            if date.search(line) != None:
+                dstring = re.sub(r", ", "-", line)
+                art_date = dstring.rstrip('\n').replace('#STARTDATE= ',"")
+            if location.search(line) != None:
+                art_location = line.rstrip('\n').replace('#LOCATIONAME= ',"")
+            if lon.search(line) != None:
+                geo_lon = line.rstrip('\n').replace('#LOCATIONY= ',"")
+            if lat.search(line) != None:
+                geo_lat = line.rstrip('\n').replace('#LOCATIONX= ',"")
+            if companyid.search(line) != None:
+                company = line.rstrip('\n').replace('#COMPANYID= ',"")
+    
+    retrieved_meta = [art_title, art_description, art_keywords, art_date, art_location,geo_lon, geo_lat,  company ]
+    meta_names= ['title', 'description' , 'keywords' , 'date'  , 'location' , 'geo_lon' , 'geo_lat' , 'company' ]
+
+    retrieved_dict = dict(zip(meta_names, retrieved_meta))
+
+    return(retrieved_dict)
+
+def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice):
    ''' Function gathers the needed metadata ( not retrieved from GEF file ) and returns a json file needed for the POST request
   
    Parameters
     ----------
     collection_chosen : str
         The chosen collection (e.g. 'grout')
-    description : str
-        The personal token of the user
-    geo
-    geo_long
-    geo_lat 
-    time_coverage
+    retrieved_dict : dict
+        Metadata retrieved from the GEF file
+    add_authors : list
+        list of additional authors
+    env_choice : str
+        Either sandbox or production ('4TU')    
+    
+
+  Returns: 
+   ----------
+    article_metadata: dict
+        Dictionary with full metadata 
+
    ''' 
    # Define metadata
+   
+
    # 1. Title for the moment as an inputation - can be retrieved from the GEF file directly
-   art_title = input('Article title:')
+   art_title = retrieved_dict['title']  #input('\nDataset title:')
    # 2. Licence
-   art_license = 50 # verify if can be hardcoded
+   art_license = 50 # verify if can be hardcoded (per collection?)
 
-   # 3. Authors 
-   add_authors =input("Does this dataset have any additional authors (Y/N)?" )
- 
-    # Clean input
-   add_authors_clean = yes_no_input(add_authors)
-
-   if add_authors_clean == 'y':
-       authors_input = input("Provide author names, separated by a coma") 
-       authors_input_list = authors_input.split(sep = ',')
-       authors_input_list_clean = list(map(str.strip, authors_input_list))
-
-       art_authors =  [
-     {
-          "name": 'Trinity'
-        },
-        {
-          "name": 'Neo'
-        },
-        {
-          "name": "John Doe"
-        }
-        ]
-
+   # the spelling of the license endpoint differs between the sandbox and production: 
+   if env_choice == 'sandbox':
+       lic_endpoint = 'licence'
+   else: 
+       lic_endpoint = 'license'
+        
 
    # 4. Key words
-   collection_tag = collection_chosen # collection tag
-   anchortype_tag = "anchortype" + anchortype
-   testtype_tag = "anchortype" + testtype
-   locationz_tag = "locationz" + locationz
-   art_keywords = [collection_tag, anchortype_tag, testtype_tag, locationz_tag, locationz_tag  ]
+   art_keywords = [ collection_chosen , retrieved_dict['keywords']  ]
 
    # 5. Formats
    coll_data_formats = {'grout':'GEF', 'XXX': 'foo', 'YYY': 'bar', 'ZZZ': 'baz'} 
-   art_format = coll_data_formats[collection_tag] # data format depending on the chosen collection
+   art_format = coll_data_formats[collection_chosen] # data format depending on the chosen collection
 
-
-
-
-   
-
-   art_description = 'description of my article'  
+   art_description = retrieved_dict['description']  
    art_categories =  [ 13555, 13554 ] # Geophysics, Geodesy 
-   art_custom_fields = {"Organizations": "TU Delft - Delft University of Technology;\nTU Delft, Faculty of Civil Engineering and Geosciences",
-                 "Time coverage": "2022-01-01",
-                 "Geolocation"  : "Cabauw Experimental Site for Atmospheric Research (CESAR): Meteo mast",
-                 "Geolocation Longitude": "4.926",
-                 "Geolocation Latitude" : "51.97",
-                 "Format"       : "media types: application/"+ art_format}
+   
+   art_org = "TU Delft - Delft University of Technology;\nTU Delft, Faculty of Civil Engineering and Geosciences;\n" + retrieved_dict['company']
 
+   art_custom_fields = {"Organizations": art_org,
+                 "Time coverage": retrieved_dict['date'] ,
+                 "Geolocation"  : retrieved_dict['location'] ,
+                 "Geolocation Longitude": retrieved_dict['geo_lon'],
+                 "Geolocation Latitude" : retrieved_dict['geo_lat'],
+                 "Format": "media types: application/"+ art_format
+                 }
+    # Dictionary with the full list of the metadata fields to be uploaded together with the article 
+   article_metadata = {"title": art_title, 
+                 lic_endpoint: art_license, # <- this notation results in 201 response, but licence is not altered on the website
+                 "tags": art_keywords,
+                 "description": art_description, 
+                 "custom_fields": art_custom_fields,
+                 "categories": art_categories, # <- this notation results in a 404 ( not found) response,
+                 "authors": art_authors
+                }
+   
+   return(article_metadata)
+                 
 
-# Send the POST response to create the article 
-response = requests.post(
-    url    = f"{fig_url}/account/articles",
-    data   = json.dumps({  "title": art_title, 
-                           "description": art_description,
-                           "license": art_license,
-                           "tags": art_keywords,
-                           "custom_fields": art_custom_fields
-                           ,"categories": art_categories    # <- this doesn't work either with strings, IDs as strings or numerics; tried also categories_by_source_id, and add them as dictionary 
-                        }),
-    headers = {
-        "Authorization": f"token {fig_token}",
+def create_article(api_url, metadata_dict, api_token):
+    ''' Sends the POST response to create the article
+    Parameters 
+    ---------
+    api_url: str
+        API URL
+    metadata_dict:
+        dictionary with all the metadata fields
+    api_token:
+        Personal token to access API
+
+    Returns 
+    -----------
+    article_url: str
+        URL of the newly created article    
+     '''
+    response = requests.post(
+        url    = f"{api_token}/account/articles",
+        data   = json.dumps({ metadata_dict }),
+        headers = {
+        "Authorization": f"token {api_token}",
         "Accept":       "application/json", 
         "Content-Type": "application/json" 
-    })
+        })
+        
+        # Get the article URL
+    article_url = None
+    
+    if response.status_code == 201: 
+         article_url = response.headers["Location"]
+    else:
+        print ("Couldn't create article.")
 
-# Get the article URL
-article_url = None
-if response.status_code == 201:
-    article_url = response.headers["Location"] # Location header from the response referes to the url  (including article_id); Other interesting headers fields : Date
-else:
-    print ("Couldn't create article.")
-
-
-## ----------------------------------------------------------------------------
-# CREATE AN ARTICLE IN A SANDBOX ENVIRONMENT
-## ----------------------------------------------------------------------------
-
-# Define metadata
-art_title = 'GEF test 6'
-art_license = 50
-#art_license = [{"value": 50}]
-art_keywords = ['tag2', 'tag2', 'tag3']
-art_description = 'description of my article' 
-art_categories =  [ 79, 23094] # Geophysics, Physical Geography and Environmental Geoscience  
-#art_categories_str =  [ '26834', '26840'] # Geophysics, Geodesy 
-art_custom_fields = {"Organizations": "TU Delft - Delft University of Technology;\nTU Delft, Faculty of Civil Engineering and Geosciences",
-                 "Time coverage": "2022-01-01",
-                 "Geolocation"  : "Cabauw Experimental Site for Atmospheric Research (CESAR): Meteo mast",
-                 "Geolocation Longitude": "4.926",
-                 "Geolocation Latitude" : "51.97",
-                 "Format"       : "media types: application/x-netcdf"}
-art_authors =  [
-    {
-      "name": 'Trinity'
-    },
-    {
-      "name": 'Neo'
-    },
-    {
-      "name": "John Doe"
-    }
-  ]
-
-
-# Send the POST response to create the article 
-response = requests.post(
-    url    = f"{sand_url}/account/articles",
-    data   = json.dumps({  "title": art_title, 
-                           # "license": art_license, <- this notation results in a 404 response
-                           "licence": art_license, # <- this notation results in 201 response, but licence is not altered on the website
-                           "tags": art_keywords,
-                           "description": art_description, 
-                           "custom_fields": art_custom_fields
-                           ,"categories": art_categories # <- this notation results in a 404 ( not found) response
-                            #,"categories": art_categories_str # <- this notation results in a 400 (bad request) response 
-                           ,"authors": art_authors
-                        }),
-    headers = {
-        "Authorization": f"token {sand_token}",
-        "Accept":       "application/json", 
-        "Content-Type": "application/json" 
-    })
-
-# Get the article URL
-article_url = None
-if response.status_code == 201:
-    article_url = response.headers["Location"] # Location header from the response referes to the url  (including article_id); Other interesting headers fields : Date
-else:
-    print ("Couldn't create article.")
-
-
- # Try to update licence as a separate step <- STILL NOTHING
-# response = requests.put(
-#    url = article_url,
-#    data   = json.dumps({  "licence": art_license}),
-#    headers = {
-#        "Authorization": f"token {sand_token}",
-#        "Accept":       "application/json", 
-#        "Content-Type": "application/json" 
-#    }
-#)   
-
-# Manually add the licence and check the api response body
-# response = requests.get(
-#    url = article_url,
-#    headers = {"Authorization": f"token {sand_token}"}
-# )
-#
-# article_data = response.json()
-# license_id      = article_data["license"]
-# license_id
-
+    return(article_url)
 
 ## -----------------------------------------------------------------------------
 # Reserve DOI
 ## -----------------------------------------------------------------------------
+def reserve_doi(article_url, api_token):
+    response = requests.post(
+        url = f"{article_url}/reserve_doi",
+        headers = {"Authorization": f"token {api_token}"}
+        )
+    
+    article_doi = None
+    if response.status_code == 200: 
+         article_doi = response.json()['doi']
+    else:
+        print ("Couldn't reserve DOI.") 
 
-response = requests.post(
-    url = f"{article_url}/reserve_doi",
-    headers = {"Authorization": f"token {sand_token}"}
-)
+    return(article_doi)
 
-# response.status_code 
 
 ##-----------------------------------------------------------------------------
 # UPLOAD DATASET
