@@ -116,7 +116,7 @@ def get_collection_type():
     asserts the selected choice and retruns the selection in form of a string 
     
     '''
-    col_choices = ['grout', 'XXX', 'YYY', 'ZZZ']
+    col_choices = ['grout', 'xxx', 'yyy', 'zzz']
     input_string = ''
     
     for i, var in enumerate(col_choices):
@@ -125,13 +125,74 @@ def get_collection_type():
     input_string = "Which collection would you upload the datasets to?" + input_string + '\n'
     coll_type = input(input_string)
     
-    coll_type_clean = int(re.sub("[^0-9]","",coll_type )) #  clean from unwanted characters
+    coll_type_clean = int(re.sub("[^a-z]","", coll_type.lower )) #  clean from unwanted characters
     
-    assert coll_type_clean in list(range(0, len(col_choices) )), 'Wrong selection. Try again.'
+    assert coll_type_clean in list(range(0, len(col_choices) )), 'Wrong selection.'
     
     collection_chosen = col_choices[coll_type_clean]
 
     return(collection_chosen)
+
+
+def get_file_format(collection_chosen):
+    '''
+    Returns the file format, depending on the collection chosen
+
+    Parameters
+    -----------
+    collection_chosen : str
+        The chosen collection (e.g. 'grout')
+
+    Returns
+    ------------
+    file_format: str
+        The file format depending on a collection chosen
+    '''
+
+    coll_data_formats = {'grout':'GEF', 'xxx': 'foo', 'yyy': 'bar', 'zzz': 'baz'} 
+    file_format = coll_data_formats[collection_chosen] # data format depending on the chosen collection
+
+    return(file_format)
+   
+def get_file_path(collection_chosen):
+    '''
+    Requests information about file_path where the datasets are placed and checks if the path exists and holds the file formats adequate for the collection chosen 
+
+   Parameters
+    -----------
+    collection_chosen : str
+        The chosen collection (e.g. 'grout')
+
+    Returns
+    ------------
+    file_path: list
+        The list of files (together with path) chosen by the user and to be uploaded
+
+    '''
+    file_path = input("Please provide the path to the files.")
+    coll_format = get_file_format(collection_chosen)
+
+    #Ifthe path provided is a single file 
+    if os.path.isfile(file_path):       
+                # If it 
+                if file_path.endswith(coll_format):
+                        # Retrieve the file_name of the path
+                        file_name = os.path.basename(file_path)
+                        print('The file selected for upload:', file_name )
+                else: 
+                    sys.exit("The format of the file: " + os.path.splitext(file_path)[1] +" does not match the selected collection:"+ collection_chosen)
+
+    else:
+        assert(os.path.isdir(file_path)), "Invalid directory"
+    
+        for file in os.listdir(file_path):
+            if file.endswith(coll_format):
+
+    # Check if the path is an existing single file 
+     # If yes - check if has the right  
+    # Check if the directory exists 
+    # Check if the directory has the files with the right extension
+    # Display the files to the user and confirm choices
 
 def request_authors():
     ''' 
@@ -287,8 +348,7 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
    art_keywords = [ collection_chosen , retrieved_dict['keywords']  ]
 
    # 5. Formats
-   coll_data_formats = {'grout':'GEF', 'XXX': 'foo', 'YYY': 'bar', 'ZZZ': 'baz'} 
-   art_format = coll_data_formats[collection_chosen] # data format depending on the chosen collection
+   art_format = get_file_format(collection_chosen) # data format depending on the chosen collection
 
    art_description = retrieved_dict['description']  
    art_categories =  [ 13555, 13554 ] # Geophysics, Geodesy 
@@ -309,7 +369,7 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
                  "description": art_description, 
                  "custom_fields": art_custom_fields,
                  "categories": art_categories, # <- this notation results in a 404 ( not found) response,
-                 "authors": art_authors
+                 "authors": add_authors
                 }
    
    return(article_metadata)
@@ -493,7 +553,6 @@ def upload_dataset(article_url, api_token, file_path):
     else:
         print ("Couldn't upload file.")
 
-
 def publish_article(article_url, api_token):
     '''
     Requests the article to be published
@@ -544,7 +603,7 @@ def add_to_collection( collection_chosen, article_url, api_token):
     ''' 
   
     # Input for the collection update
-    collection_IDs = {'grout':2977400, 'XXX': 0, 'YYY': 0, 'ZZZ': 0} # 2977400 is awilczynski's test  collection in sandbox
+    collection_IDs = {'grout':2977400, 'xxx': 0, 'yyy': 0, 'zzz': 0} # 2977400 is awilczynski's test  collection in sandbox
     collection_id = collection_IDs[collection_chosen] # data format depending on the chosen collection
     
     # Retrieve article ID and api_url from the article_url
@@ -570,9 +629,6 @@ def add_to_collection( collection_chosen, article_url, api_token):
          return(collection_url)
     else:
         print ("Couldn't publish the article.") 
-
-    
-# PUBLISH THE COLLECTION 
 
 def publish_collection( collection_url, api_token):
     '''
@@ -601,3 +657,4 @@ def publish_collection( collection_url, api_token):
          return(collection_url)
     else:
         print ("Couldn't publish the collection.") 
+
