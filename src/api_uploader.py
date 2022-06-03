@@ -1,14 +1,11 @@
-# Import libraries
 import requests
 import json
 import hashlib
 import os
 import re
+import sys
 from config import AW_KEY, AW_KEY_SAND
 
-## ----------------------------------------------------------------------------
-# PREP - URL AND TOKENS
-## ----------------------------------------------------------------------------
 
 def yes_no_input(user_input):
         # Clean input
@@ -18,7 +15,6 @@ def yes_no_input(user_input):
     assert user_input_clean in ['y', 'yes', 'n', 'no'] ,'I did not understand your selection. Please try again.'
     return(user_input_clean[0])
 
-# Give user choice to choose between the sandbox and 4TU
 def choose_entry_mode():
     '''
     Function allows the user to choose between the Sandbox and main 4TU environment 
@@ -38,7 +34,6 @@ def choose_entry_mode():
     
     return(env_choice)
 
-# Get the right URL
 def get_url(env_choice):
     '''
     The function returns the API URL depending on which environment the user chose to upload the files 
@@ -60,7 +55,6 @@ def get_url(env_choice):
     # Return the right api
     return(api_url)
     
-# Request the personal token of the user 
 def get_token(env_choice):
     '''
     The function requests the personal token from the user 
@@ -78,7 +72,6 @@ def get_token(env_choice):
     # Return the right api
     return(api_token)
 
-# Function to get a list of licences available at 4TU 
 def get_licences(api_url, api_token ):
     '''
     Function retrieves the list of licences available in the repository depending on the environment chosen
@@ -98,7 +91,6 @@ def get_licences(api_url, api_token ):
     # Retrun list of licences available together with thier IDs ( needed for metadata)   
     return(response.json() )
 
-# Function to get a list of licences available at 4TU 
 def get_categories(api_url, api_token ):
     '''
     Function retrieves the list of categories available in the repository depending on the environment chosen
@@ -321,10 +313,9 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
                 }
    
    return(article_metadata)
-                 
-
+              
 def create_article(api_url, metadata_dict, api_token):
-    ''' Sends the POST response to create the article
+    ''' Sends the POST request to create the article
     Parameters 
     ---------
     api_url: str
@@ -358,10 +349,20 @@ def create_article(api_url, metadata_dict, api_token):
 
     return(article_url)
 
-## -----------------------------------------------------------------------------
-# Reserve DOI
-## -----------------------------------------------------------------------------
 def reserve_doi(article_url, api_token):
+    ''' Sends the POST request to reserve a DOI for the article
+    Parameters 
+    ---------
+    article_url: str
+        URL of the article 
+    api_token:
+        Personal token to access API
+
+    Returns 
+    -----------
+    article_doi: str
+        DOI reserved for the article    
+     '''
     response = requests.post(
         url = f"{article_url}/reserve_doi",
         headers = {"Authorization": f"token {api_token}"}
@@ -375,161 +376,228 @@ def reserve_doi(article_url, api_token):
 
     return(article_doi)
 
+def upload_dataset(article_url, api_token, file_path):
+    '''
+    Uploads file to a selected article
 
-##-----------------------------------------------------------------------------
-# UPLOAD DATASET
-##-----------------------------------------------------------------------------
+    Parameters
+    ----------
+    article_url: str
+        URL of the article 
+    api_token: str
+        Personal token to access API
+    file_path: str
+        Name of the file to be uploaded to the article    
+    ''' 
+    # Make sure that file exists 
+    assert os.path.isfile(file_path), "Cannot access the file. Please verify the given path or try reconnecting to the drive"
+    
+    # Retrieve the file_name of the path
+    file_name = os.path.basename(file_path)
 
-# Define data path 
-file_path = 'LBBR_28-1.GEF'
-
-
-## INITIATE UPLOAD / REGISTER A FILE
-file_size    = os.path.getsize(file_path) # checks size of file
-md5          = hashlib.md5() # define checksum method
-
-computed_md5 = None
-with open (file_path, "rb") as stream: 
-    for chunk in iter(lambda: stream.read(4096), b""):
-        md5.update(chunk)
-        computed_md5 = md5.hexdigest() 
-
-response     = requests.post(
-    url     = f"{article_url}/files", 
-    data    = json.dumps({
-        "name": "LBR_28-1",
-        "md5":  computed_md5,
-        "size": file_size
-    }),
-    headers = {
-        "Authorization": f"token {sand_token}",
-        "Accept":       "application/json",
-        "Content-Type": "application/json"
-    })
-
-file_url = None
-if response.status_code == 201:
-    file_url = response.headers["Location"]
-else:
-    print ("Couldn't create file.")
+    ## INITIATE UPLOAD / REGISTER A FILE
+    file_size    = os.path.getsize(file_path) # checks size of file
+    md5          = hashlib.md5() # define checksum method
+    
+    computed_md5 = None
+    with open (file_path, "rb") as stream: 
+        for chunk in iter(lambda: stream.read(4096), b""):
+            md5.update(chunk)
+            computed_md5 = md5.hexdigest() 
+            
+            response     = requests.post(
+                url     = f"{article_url}/files", 
+                data    = json.dumps({
+                    "name": file_name,
+                    "md5":  computed_md5,
+                    "size": file_size
+                    }),
+                headers = {
+                    "Authorization": f"token {api_token}",
+                    "Accept":       "application/json",
+                    "Content-Type": "application/json"
+                    })
+                    
+    
+    file_url = None
+    if response.status_code == 201:
+        file_url = response.headers["Location"]
+    else:
+        sys.exit("Couldn't create file.")
 
 ## GET UPLOAD METADATA
+    response = requests.get(
+        url   = file_url,
+        headers = {
+            "Authorization": f"token {api_token}",
+            "Accept":       "application/json",
+        })
 
-response = requests.get(
-    url   = file_url,
-    headers = {
-        "Authorization": f"token {sand_token}",
-        "Accept":       "application/json",
-    })
+    file_data = response.json()
+    file_id      = file_data["id"]
+    upload_token = file_data["upload_token"]
+    upload_url   = file_data["upload_url"]
 
-file_data = response.json()
-file_id      = file_data["id"]
-upload_token = file_data["upload_token"]
-upload_url   = file_data["upload_url"]
-
-response = requests.get(
-    url = upload_url,
-    headers = {
-        "Authorization": f"token {sand_token}",
-        "Accept":       "application/json",
-    })
-
-#response.status_code
-
-upload_metadata = response.json()
+    response = requests.get(
+        url = upload_url,
+        headers = {
+            "Authorization": f"token {api_token}",
+            "Accept":       "application/json",
+        })
+        
+    upload_metadata = response.json()
 
 # UPLOAD PARTS
+    parts_metadata = upload_metadata["parts"]
+    file_stream    = open(file_path, "rb")
 
-parts_metadata = upload_metadata["parts"]
-file_stream    = open(file_path, "rb")
+    for part in parts_metadata:
+        part_number     = part["partNo"]
+        start_position  = part['startOffset']
+        end_position    = part['endOffset']
+        number_of_bytes = end_position - start_position + 1
+        print(f"Uploading part {part_number} ({number_of_bytes} bytes).")
+        file_stream.seek(start_position)
+        chunk    = file_stream.read(number_of_bytes)
+        response = requests.put(
+            url = f"{upload_url}/{part_number}",
+            headers = {
+                "Authorization": f"token {api_token}",
+                "Accept":       "application/json",
+            },
+            data = chunk)
 
-for part in parts_metadata:
-    part_number     = part["partNo"]
-    start_position  = part['startOffset']
-    end_position    = part['endOffset']
-    number_of_bytes = end_position - start_position + 1
-    print(f"Uploading part {part_number} ({number_of_bytes} bytes).")
-    file_stream.seek(start_position)
-    chunk    = file_stream.read(number_of_bytes)
-    response = requests.put(
-        url = f"{upload_url}/{part_number}",
-        headers = {
-            "Authorization": f"token {sand_token}",
-            "Accept":       "application/json",
-        },
-        data = chunk)
-
-file_stream.close()
+    file_stream.close()
 
 
 # CHECK NEW FILE STATUS
-
-response = requests.get(
-    url = upload_url,
-    headers = {
-        "Authorization": f"token {sand_token}",
-        "Accept":       "application/json",
-    })
-
-response.status_code
-upload_metadata = response.json()
-upload_metadata
+    response = requests.get(
+        url = upload_url,
+        headers = {
+            "Authorization": f"token {api_token}",
+            "Accept":       "application/json",
+            })
+    upload_metadata = response.json()
 
 # FINALIZE UPLOAD
+    response = requests.post(
+        url     = f"{article_url}/files/{file_id}",
+        headers = {
+            "Authorization": f"token {api_token}",
+            "Accept":       "application/json",
+        })
 
-response = requests.post(
-    url     = f"{article_url}/files/{file_id}",
-    headers = {
-        "Authorization": f"token {sand_token}",
-        "Accept":       "application/json",
-    })
-
-
-
-##------------------------------------------
-# PUBLISH ARTICLE
-##------------------------------------------
-
-##### NOTE #####################################
-#
-# When an article is published, a new public version will be generated.
-# Any further updates to the article will affect the private article data.
-# In order to make these changes publicly visible, an explicit publish operation is needed.
-#
-###############################################
-
-response = requests.post(
-    url = f"{article_url}/publish",
-    headers = {"Authorization": f"token {sand_token}"}
-)
-
-##------------------------------------------
-# ADD THE ARTICLE TO A  COLLECTION         <- Adapt private version ; publish - collecion iD stays the same, but the upload will create a new version
-##------------------------------------------
-
-# Input for the collection update
-collection_id = 2977400 # <-test  collection in sandbox
-article_id = [int(re.search('/([0-9]+)$', article_url).group(1))] # retrieve article id from URL
-api_url = f"{sand_url}account/collections/{collection_id}/" # url to add article to a private collection
+            
+    if response.status_code == 202 :
+        print ("Upload of file ", file_path," complete" )
+    else:
+        print ("Couldn't upload file.")
 
 
-# ADD THE ARTICLE TO A PRIVATE COLLECTION
-response = requests.post(
-    url = f"{api_url}articles",
-    data   = json.dumps({  "articles": article_id}),
-    headers = {"Authorization": f"token {sand_token}",
-               "Accept":       "application/json",
-               "Content-Type": "application/json"}
-)
+def publish_article(article_url, api_token):
+    '''
+    Requests the article to be published
 
-# print('ADD article: ', response.status_code)
+    NOTE 
+    When an article is published, a new public version will be generated.
+    Any further updates to the article will affect the private article data.
+    In order to make these changes publicly visible, an explicit publish operation is needed.
+
+    Parameters
+    ----------
+    article_url: str
+        URL of the article 
+    api_token: str
+        Personal token to access API    
+    ''' 
+    
+    response = requests.post(
+        url = f"{article_url}/publish",
+        headers = {"Authorization": f"token {api_token}"}
+        )
+
+    if response.status_code == 201: 
+         print ("Publishing request sent successfully.") 
+    else:
+        print ("Couldn't publish the article.") 
+
+def add_to_collection( collection_chosen, article_url, api_token):
+    '''
+    Requests the article to be added to a collection
+
+    NOTE 
+    Whenever a collection is altered, it needs to be republished for the changes to be seen publicly.  
+
+    Parameters
+    ----------
+    collection_chosen: str
+        Collection the aticle should be added to
+    article_url: str
+        URL of the article 
+    api_token: str
+        Personal token to access API 
+
+    Returns
+    ---------
+    colection_url: str
+        URL of the collection the article is published to    
+    ''' 
+  
+    # Input for the collection update
+    collection_IDs = {'grout':2977400, 'XXX': 0, 'YYY': 0, 'ZZZ': 0} # 2977400 is awilczynski's test  collection in sandbox
+    collection_id = collection_IDs[collection_chosen] # data format depending on the chosen collection
+    
+    # Retrieve article ID and api_url from the article_url
+    searches = re.search('(.*)(articles/)([0-9]+)$', article_url)
+    article_id = [int(searches.group(3))]
+    api_url = searches.group(1)
+
+    collection_url = f"{api_url}collections/{collection_id}/" 
+
+
+    # ADD THE ARTICLE TO A PRIVATE COLLECTION
+    response = requests.post(
+        url = f"{collection_url}articles",
+        data   = json.dumps({  "articles": article_id}),
+        headers = {"Authorization": f"token {api_token}",
+                    "Accept":       "application/json",
+                    "Content-Type": "application/json"
+                    })
+
+
+    if response.status_code == 201: 
+         print ("Publishing request sent successfully.") 
+         return(collection_url)
+    else:
+        print ("Couldn't publish the article.") 
+
     
 # PUBLISH THE COLLECTION 
-response = requests.post(
-    url = f"{api_url}publish",
-    headers = {"Authorization": f"token {sand_token}"}
-)
 
-# print("Publish collection: ", response.status_code)
-    
-#response.status_code
+def publish_collection( collection_url, api_token):
+    '''
+    Requests the collection to be (re)published
+
+    NOTE 
+    Whenever a new article/dataset is added to a collection it needs to be republished. This creates a new version of the public collection and DOI, e.g.:
+        - https://doi.org/10.5074/c.2977400.v1
+        - https://doi.org/10.5074/c.2977400.v2
+        - https://doi.org/10.5074/c.2977400.v3
+
+    Parameters
+    ----------
+    article_url: str
+        URL of the article 
+    api_token: str
+        Personal token to access API    
+    ''' 
+    response = requests.post(
+        url = f"{collection_url}publish",
+        headers = {"Authorization": f"token {api_token}"}
+        )
+
+    if response.status_code == 201: 
+         print ("Publishing request sent successfully.") 
+         return(collection_url)
+    else:
+        print ("Couldn't publish the collection.") 
