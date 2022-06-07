@@ -6,7 +6,6 @@ import re
 import sys
 from config import AW_KEY, AW_KEY_SAND
 
-
 def yes_no_input(user_input):
         # Clean input
     user_input_clean = re.sub("[^a-z]","",user_input.lower())
@@ -31,7 +30,6 @@ def choose_entry_mode():
         env_choice = "4TU"
         print('Production environment chosen')
 
-    
     return(env_choice)
 
 def get_url(env_choice):
@@ -67,7 +65,7 @@ def get_token(env_choice):
 
     assert env_choice in {'4TU' , 'sandbox'}, 'No valid environment chosen.'
 
-    api_token = input("Provide your presonal token for the" + env_choice + " environment")
+    api_token = input("Provide your presonal token for the " + env_choice + " environment: ")
     
     # Return the right api
     return(api_token)
@@ -116,7 +114,7 @@ def get_collection_type():
     asserts the selected choice and retruns the selection in form of a string 
     
     '''
-    col_choices = ['grout', 'XXX', 'YYY', 'ZZZ']
+    col_choices = ['grout', 'xxx', 'yyy', 'zzz']
     input_string = ''
     
     for i, var in enumerate(col_choices):
@@ -125,15 +123,81 @@ def get_collection_type():
     input_string = "Which collection would you upload the datasets to?" + input_string + '\n'
     coll_type = input(input_string)
     
-    coll_type_clean = int(re.sub("[^0-9]","",coll_type )) #  clean from unwanted characters
+    coll_type_clean = int(re.sub("[^0-9]","", coll_type.lower() )) #  clean from unwanted characters
     
-    assert coll_type_clean in list(range(0, len(col_choices) )), 'Wrong selection. Try again.'
+    assert coll_type_clean in list(range(0, len(col_choices) )), 'Wrong selection.'
     
     collection_chosen = col_choices[coll_type_clean]
 
     return(collection_chosen)
 
-def request_authors():
+def get_file_format(collection_chosen):
+    '''
+    Returns the file format, depending on the collection chosen
+
+    Parameters
+    -----------
+    collection_chosen : str
+        The chosen collection (e.g. 'grout')
+
+    Returns
+    ------------
+    file_format: str
+        The file format depending on a collection chosen
+    '''
+
+    coll_data_formats = {'grout':'GEF', 'xxx': 'foo', 'yyy': 'bar', 'zzz': 'baz'} 
+    file_format = coll_data_formats[collection_chosen] # data format depending on the chosen collection
+
+    return(file_format)
+   
+def get_file_path(collection_chosen):
+    '''
+    Requests information about file_path where the datasets are placed and checks if the path exists and holds the file formats adequate for the collection chosen 
+
+   Parameters
+    -----------
+    collection_chosen : str
+        The chosen collection (e.g. 'grout')
+
+    Returns
+    ------------
+    file_path: list
+        The list of files (together with path) chosen by the user and to be uploaded
+
+    '''
+    file_path = input("Please provide the path to the files: ")
+    coll_format = get_file_format(collection_chosen)
+
+    file_list =  []
+    #If the path provided is a single file 
+    if os.path.isfile(file_path):       
+                # If it 
+                if file_path.endswith(coll_format):
+                        # Retrieve the file_name of the path
+                        file_name = os.path.basename(file_path)
+                        print('The file selected for upload:', file_name )
+                        file_list = [file_path]
+                else: 
+                    sys.exit("The format of the file: " + os.path.splitext(file_path)[1] +" does not match the selected collection format: "+ coll_format)
+    else:
+        assert os.path.isdir(file_path) , "Invalid directory"
+    
+        for file in os.listdir(file_path):
+            if file.endswith(coll_format):
+                file_list.append( os.path.join(file_path, file))
+
+    assert len(file_list)>0 , "No files in the directory match the selected collection format: "+ coll_format
+
+    input_string = ''
+    for file in file_list:
+        input_string += '\n'+  '- ' + os.path.basename(file)  
+
+    print('The files selected in upload: ' + input_string + '/n')
+
+    return(file_list)
+
+def request_authors(file_path):
     ''' 
     Requests information about additional authors 
 
@@ -143,11 +207,11 @@ def request_authors():
             list of dictionaries with authors' names
     
     '''
-    # Intro 
-    print("You're a few steps away from publishing your dataset. Before that, you need to provide some additional information about your dataset....")
 
-    # Verify if there are additional authors 
-    add_authors =input("Does this dataset have any additional authors, apart from you (Y/N)?" )
+    file_name = os.path.basename(file_path)
+
+        # Verify if there are additional authors 
+    add_authors =input("Does the dataset " + file_name + " have any additional authors, apart from you (Y/N)?" )
  
     # Clean input
     add_authors_clean = yes_no_input(add_authors)
@@ -156,7 +220,7 @@ def request_authors():
     art_authors = []
 
     if add_authors_clean == 'y':
-        authors_input = input("Provide author names, separated by a coma") 
+        authors_input = input("Provide author names, separated by a coma: ") 
         authors_input_list = authors_input.split(sep = ',')
         authors_input_list_clean = list(map(str.strip, authors_input_list))
         for author in authors_input_list_clean:
@@ -177,7 +241,7 @@ def retrieve_metadata(file):
 
     Returns
     --------
-    retrieved_dict: list 
+    retrieved_dict: dict 
         Metadata fields retrieved from a gef file: description
     '''
 
@@ -240,10 +304,10 @@ def retrieve_metadata(file):
             if companyid.search(line) != None:
                 company = line.rstrip('\n').replace('#COMPANYID= ',"")
     
-    retrieved_meta = [art_title, art_description, art_keywords, art_date, art_location,geo_lon, geo_lat,  company ]
+    retrieved_fields = [art_title, art_description, art_keywords, art_date, art_location,geo_lon, geo_lat,  company ]
     meta_names= ['title', 'description' , 'keywords' , 'date'  , 'location' , 'geo_lon' , 'geo_lat' , 'company' ]
 
-    retrieved_dict = dict(zip(meta_names, retrieved_meta))
+    retrieved_dict = dict(zip(meta_names, retrieved_fields))
 
     return(retrieved_dict)
 
@@ -284,14 +348,18 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
         
 
    # 4. Key words
-   art_keywords = [ collection_chosen , retrieved_dict['keywords']  ]
-
+   retrieved_dict['keywords'].append('colection-'+collection_chosen)
+   art_keywords = retrieved_dict['keywords']
    # 5. Formats
-   coll_data_formats = {'grout':'GEF', 'XXX': 'foo', 'YYY': 'bar', 'ZZZ': 'baz'} 
-   art_format = coll_data_formats[collection_chosen] # data format depending on the chosen collection
+   art_format = get_file_format(collection_chosen) # data format depending on the chosen collection
 
    art_description = retrieved_dict['description']  
-   art_categories =  [ 13555, 13554 ] # Geophysics, Geodesy 
+
+   if env_choice == 'sandbox':
+       art_categories =  [79, 23094] # Geophysics, Geodesy 
+   else: 
+       art_categories =  [ 13555, 13554 ] # Geophysics, Geodesy 
+
    
    art_org = "TU Delft - Delft University of Technology;\nTU Delft, Faculty of Civil Engineering and Geosciences;\n" + retrieved_dict['company']
 
@@ -302,6 +370,7 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
                  "Geolocation Latitude" : retrieved_dict['geo_lat'],
                  "Format": "media types: application/"+ art_format
                  }
+                 
     # Dictionary with the full list of the metadata fields to be uploaded together with the article 
    article_metadata = {"title": art_title, 
                  lic_endpoint: art_license, # <- this notation results in 201 response, but licence is not altered on the website
@@ -309,9 +378,9 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
                  "description": art_description, 
                  "custom_fields": art_custom_fields,
                  "categories": art_categories, # <- this notation results in a 404 ( not found) response,
-                 "authors": art_authors
+                 "authors": add_authors
                 }
-   
+
    return(article_metadata)
               
 def create_article(api_url, metadata_dict, api_token):
@@ -331,8 +400,8 @@ def create_article(api_url, metadata_dict, api_token):
         URL of the newly created article    
      '''
     response = requests.post(
-        url    = f"{api_token}/account/articles",
-        data   = json.dumps({ metadata_dict }),
+        url    = f"{api_url}/account/articles",
+        data   = json.dumps(metadata_dict) ,
         headers = {
         "Authorization": f"token {api_token}",
         "Accept":       "application/json", 
@@ -493,7 +562,6 @@ def upload_dataset(article_url, api_token, file_path):
     else:
         print ("Couldn't upload file.")
 
-
 def publish_article(article_url, api_token):
     '''
     Requests the article to be published
@@ -544,7 +612,7 @@ def add_to_collection( collection_chosen, article_url, api_token):
     ''' 
   
     # Input for the collection update
-    collection_IDs = {'grout':2977400, 'XXX': 0, 'YYY': 0, 'ZZZ': 0} # 2977400 is awilczynski's test  collection in sandbox
+    collection_IDs = {'grout':2977400, 'xxx': 0, 'yyy': 0, 'zzz': 0} # 2977400 is awilczynski's test  collection in sandbox
     collection_id = collection_IDs[collection_chosen] # data format depending on the chosen collection
     
     # Retrieve article ID and api_url from the article_url
@@ -566,13 +634,10 @@ def add_to_collection( collection_chosen, article_url, api_token):
 
 
     if response.status_code == 201: 
-         print ("Publishing request sent successfully.") 
+         print ("Article added to the "+ collection_chosen + " collection.") 
          return(collection_url)
     else:
         print ("Couldn't publish the article.") 
-
-    
-# PUBLISH THE COLLECTION 
 
 def publish_collection( collection_url, api_token):
     '''
@@ -601,3 +666,67 @@ def publish_collection( collection_url, api_token):
          return(collection_url)
     else:
         print ("Couldn't publish the collection.") 
+
+        # test if COLUMN is in the headerdict
+        assert 'REPORTCODE' in self.headerdict, 'REPORTCODE not found'
+
+        if 'GEF-BORE-Report' in self.headerdict['REPORTCODE']:
+            return
+        
+        elif 'GEF-CPT-Report' in self.headerdict['REPORTCODE']:
+            # standards according to:
+            # https://publicwiki.deltares.nl/display/STREAM/GEF-CPT?preview=/102204318/102334492/GEF-CPT.pdf
+            
+            # *** test presence of key labels: file tracing ***
+            assert 'GEFID' in self.headerdict, 'GEFID not found'
+            assert 'COMPANYID' in self.headerdict, 'COMPANYID not found'
+            assert 'FILEDATE' in self.headerdict, 'FILEDATE not found'
+            assert 'FILEOWNER' in self.headerdict, 'FILEOWNER not found'
+            assert 'PROJECTID' in self.headerdict, 'PROJECTID not found'
+            assert 'TESTID' in self.headerdict, 'TESTID not found'
+            assert 'ZID' in self.headerdict, 'ZID not found'
+                        
+            # *** test presence of key labels: data descriptive ***
+            # test if COLUMN is in the headerdict
+            assert 'COLUMN' in self.headerdict, 'COLUMN not found'
+
+            # test if COLUMNINFO is in the headerdict
+            assert 'COLUMNINFO' in self.headerdict, 'COLUMNINFO not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'COLUMNVOID' in self.headerdict, 'COLUMNVOID not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'datablok' in self.headerdict, 'datablok not found'
+
+            # *** test internal logic of the data
+            # test if there are as many COLUMNINFO's as you would expect from the field COLUMN
+            assert self.headerdict['COLUMN'][0]==len(self.headerdict['COLUMNINFO']), 'COLUMNS does not match the number of COLUMNINFO'
+
+            # test if the LASTSCAN value euqals the lenght of the data block
+            assert self.headerdict['LASTSCAN'][0]==len(self.headerdict['datablok']), 'LASTSCAN does not match the length of datablok' 
+            
+            
+            return True
+        elif 'GEF-Anker-data' in self.headerdict['REPORTCODE']:
+            # *** test presence of key labels ***
+            # test if COLUMN is in the headerdict
+            assert 'COLUMN' in self.headerdict, 'COLUMN not found'
+
+            # test if COLUMNINFO is in the headerdict
+            assert 'COLUMNINFO' in self.headerdict, 'COLUMNINFO not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'COLUMNVOID' in self.headerdict, 'COLUMNVOID not found'
+
+            # test if COLUMN is in the headerdict
+            assert 'datablok' in self.headerdict, 'datablok not found'
+
+            # *** test internal logic of the data
+            # test if there are as many COLUMNINFO's as you would expect from the field COLUMN
+            assert self.headerdict['COLUMN'][0]==len(self.headerdict['COLUMNINFO']), 'COLUMNS does not match the number of COLUMNINFO'
+
+            # test if the LASTSCAN value euqals the lenght of the data block
+            assert self.headerdict['LASTSCAN'][0]==len(self.headerdict['datablok']), 'LASTSCAN does not match the length of datablok' 
+            
+            return True
