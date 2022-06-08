@@ -3,7 +3,6 @@ import sys
 from datetime import datetime
 #from bulk_entry import *
 from api_uploader import *
-from gefreader import test_gef
 
 def main(netID):
     """
@@ -42,16 +41,15 @@ def main(netID):
     retrieved_meta = []
     article_meta = []
     for i, file in enumerate(file_list):
-        test_gef()
         art_authors = request_authors(file)
         retrieved_meta.append(retrieve_metadata(file))
         article_meta.append(compile_metadata(collection_chosen, retrieved_meta[i], art_authors, env_choice))
         article_url = create_article(api_url, article_meta[i], api_token)
-        #article_doi = reserve_doi(article_url, api_token)
+        article_doi = reserve_doi(article_url, api_token)
         upload_dataset(article_url, api_token, file)
-        #publish_article(article_url, api_token)
-        collection_url = add_to_collection( collection_chosen, article_url, api_token)
-        #publish_collection( collection_url, api_token)
+        publish_article(article_url, api_token)
+        collection_url = add_to_collection( collection_chosen, article_url, api_token, env_choice)
+        publish_collection( collection_url, api_token)
 
 
 

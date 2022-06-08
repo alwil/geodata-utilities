@@ -176,7 +176,6 @@ def get_file_path(collection_chosen):
                 if file_path.endswith(coll_format):
                         # Retrieve the file_name of the path
                         file_name = os.path.basename(file_path)
-                        print('The file selected for upload:', file_name )
                         file_list = [file_path]
                 else: 
                     sys.exit("The format of the file: " + os.path.splitext(file_path)[1] +" does not match the selected collection format: "+ coll_format)
@@ -193,7 +192,7 @@ def get_file_path(collection_chosen):
     for file in file_list:
         input_string += '\n'+  '- ' + os.path.basename(file)  
 
-    print('The files selected in upload: ' + input_string + '/n')
+    print('The files selected in upload: ' + input_string + '\n')
 
     return(file_list)
 
@@ -225,7 +224,7 @@ def request_authors(file_path):
         authors_input_list_clean = list(map(str.strip, authors_input_list))
         for author in authors_input_list_clean:
             info = {"name": author }
-        art_authors.append(info)
+            art_authors.append(info)
     else:
         print("Understood, no additional authors.")
     
@@ -338,7 +337,12 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
    # 1. Title for the moment as an inputation - can be retrieved from the GEF file directly
    art_title = retrieved_dict['title']  #input('\nDataset title:')
    # 2. Licence
-   art_license = 50 # verify if can be hardcoded (per collection?)
+   if env_choice == 'sandbox':
+       art_license = 50
+   else: 
+       art_license = 1
+        
+    # verify if can be hardcoded (per collection?)
 
    # the spelling of the license endpoint differs between the sandbox and production: 
    if env_choice == 'sandbox':
@@ -589,7 +593,7 @@ def publish_article(article_url, api_token):
     else:
         print ("Couldn't publish the article.") 
 
-def add_to_collection( collection_chosen, article_url, api_token):
+def add_to_collection( collection_chosen, article_url, api_token, env_choice):
     '''
     Requests the article to be added to a collection
 
@@ -612,7 +616,12 @@ def add_to_collection( collection_chosen, article_url, api_token):
     ''' 
   
     # Input for the collection update
-    collection_IDs = {'grout':2977400, 'xxx': 0, 'yyy': 0, 'zzz': 0} # 2977400 is awilczynski's test  collection in sandbox
+    if env_choice == 'sandbox':
+       collection_IDs = {'grout':2977400, 'xxx': 0, 'yyy': 0, 'zzz': 0} # 2977400 is awilczynski's test  collection in sandbox
+    else: 
+       collection_IDs = {'grout':6036302, 'xxx': 0, 'yyy': 0, 'zzz': 0}
+    
+    
     collection_id = collection_IDs[collection_chosen] # data format depending on the chosen collection
     
     # Retrieve article ID and api_url from the article_url
@@ -637,7 +646,7 @@ def add_to_collection( collection_chosen, article_url, api_token):
          print ("Article added to the "+ collection_chosen + " collection.") 
          return(collection_url)
     else:
-        print ("Couldn't publish the article.") 
+        print ("Couldn't add the article to the collection.") 
 
 def publish_collection( collection_url, api_token):
     '''
@@ -666,67 +675,3 @@ def publish_collection( collection_url, api_token):
          return(collection_url)
     else:
         print ("Couldn't publish the collection.") 
-
-        # test if COLUMN is in the headerdict
-        assert 'REPORTCODE' in self.headerdict, 'REPORTCODE not found'
-
-        if 'GEF-BORE-Report' in self.headerdict['REPORTCODE']:
-            return
-        
-        elif 'GEF-CPT-Report' in self.headerdict['REPORTCODE']:
-            # standards according to:
-            # https://publicwiki.deltares.nl/display/STREAM/GEF-CPT?preview=/102204318/102334492/GEF-CPT.pdf
-            
-            # *** test presence of key labels: file tracing ***
-            assert 'GEFID' in self.headerdict, 'GEFID not found'
-            assert 'COMPANYID' in self.headerdict, 'COMPANYID not found'
-            assert 'FILEDATE' in self.headerdict, 'FILEDATE not found'
-            assert 'FILEOWNER' in self.headerdict, 'FILEOWNER not found'
-            assert 'PROJECTID' in self.headerdict, 'PROJECTID not found'
-            assert 'TESTID' in self.headerdict, 'TESTID not found'
-            assert 'ZID' in self.headerdict, 'ZID not found'
-                        
-            # *** test presence of key labels: data descriptive ***
-            # test if COLUMN is in the headerdict
-            assert 'COLUMN' in self.headerdict, 'COLUMN not found'
-
-            # test if COLUMNINFO is in the headerdict
-            assert 'COLUMNINFO' in self.headerdict, 'COLUMNINFO not found'
-
-            # test if COLUMN is in the headerdict
-            assert 'COLUMNVOID' in self.headerdict, 'COLUMNVOID not found'
-
-            # test if COLUMN is in the headerdict
-            assert 'datablok' in self.headerdict, 'datablok not found'
-
-            # *** test internal logic of the data
-            # test if there are as many COLUMNINFO's as you would expect from the field COLUMN
-            assert self.headerdict['COLUMN'][0]==len(self.headerdict['COLUMNINFO']), 'COLUMNS does not match the number of COLUMNINFO'
-
-            # test if the LASTSCAN value euqals the lenght of the data block
-            assert self.headerdict['LASTSCAN'][0]==len(self.headerdict['datablok']), 'LASTSCAN does not match the length of datablok' 
-            
-            
-            return True
-        elif 'GEF-Anker-data' in self.headerdict['REPORTCODE']:
-            # *** test presence of key labels ***
-            # test if COLUMN is in the headerdict
-            assert 'COLUMN' in self.headerdict, 'COLUMN not found'
-
-            # test if COLUMNINFO is in the headerdict
-            assert 'COLUMNINFO' in self.headerdict, 'COLUMNINFO not found'
-
-            # test if COLUMN is in the headerdict
-            assert 'COLUMNVOID' in self.headerdict, 'COLUMNVOID not found'
-
-            # test if COLUMN is in the headerdict
-            assert 'datablok' in self.headerdict, 'datablok not found'
-
-            # *** test internal logic of the data
-            # test if there are as many COLUMNINFO's as you would expect from the field COLUMN
-            assert self.headerdict['COLUMN'][0]==len(self.headerdict['COLUMNINFO']), 'COLUMNS does not match the number of COLUMNINFO'
-
-            # test if the LASTSCAN value euqals the lenght of the data block
-            assert self.headerdict['LASTSCAN'][0]==len(self.headerdict['datablok']), 'LASTSCAN does not match the length of datablok' 
-            
-            return True
