@@ -272,7 +272,7 @@ def retrieve_metadata(file):
 
     # create patterns to search text
     title = re.compile(r'#PROJECT')
-    keywords = re.compile(r'TESTTYPE= |ANCHORTYPE= |LOCATIONZ= ')
+    keywords = re.compile(r'TESTTYPE= |ANCHORTYPE= |LOCATIONNAME= |LOCATIONX= |LOCATIONY= |LOCATIONZ= ')
     date = re.compile(r'#STARTDATE=')
     location = re.compile(r'#LOCATIONAME= ')
     lon = re.compile(r'#LOCATIONY= ')
