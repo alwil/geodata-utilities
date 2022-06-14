@@ -5,6 +5,7 @@ import os
 import re
 import sys
 from config import AW_KEY, AW_KEY_SAND
+from gefreader import Gef2OpenClass
 
 def yes_no_input(user_input):
         # Clean input
@@ -13,6 +14,32 @@ def yes_no_input(user_input):
     # Allow only y/yes n/no 
     assert user_input_clean in ['y', 'yes', 'n', 'no'] ,'I did not understand your selection. Please try again.'
     return(user_input_clean[0])
+
+def choose_action():
+    '''
+    Function allows the user to choose the action they want to perform
+
+    Returns
+    ----------
+    action_chosen: str
+        The action the user wants to perform within the program
+
+    '''
+
+    action_choices = ['Upload files to 4TU repository', 'Browse and retrieve files from 4TU repository']
+    action_choices_short = ['upload', 'etrieve']
+
+    for i, var in enumerate(action_choices):
+        input_string += '\n'+ str(i) + '-' + var  
+    input_string = 'What would you like to do? ' + input_string + '\n'
+    choosen_action = input(input_string)
+    choosen_action_clean = int(re.sub("[^0-9]","", choosen_action.lower() )) #  clean from unwanted characters
+    
+    assert  choosen_action_clean in list(range(0, len(action_choices)-1 )), 'Wrong selection.'
+    
+    action_chosen = action_choices_short[choosen_action_clean]
+
+    return(action_chosen)
 
 def choose_entry_mode():
     '''
@@ -125,7 +152,7 @@ def get_collection_type():
     
     coll_type_clean = int(re.sub("[^0-9]","", coll_type.lower() )) #  clean from unwanted characters
     
-    assert coll_type_clean in list(range(0, len(col_choices) )), 'Wrong selection.'
+    assert coll_type_clean in list(range(0, len(col_choices)-1 )), 'Wrong selection.'
     
     collection_chosen = col_choices[coll_type_clean]
 
@@ -196,39 +223,41 @@ def get_file_path(collection_chosen):
 
     return(file_list)
 
-def request_authors(file_path):
+def request_authors(file_list):
     ''' 
     Requests information about additional authors 
-
+    Parameters
+    -----------
+        file_list: list 
+            list of files to be uploaded to the repository
     Returns
     -----------
         art_authors: list
             list of dictionaries with authors' names
     
     '''
-
-    file_name = os.path.basename(file_path)
-
+    authors_list = []
+    for i, file in enumerate(file_list):
+        file_name = os.path.basename(file)
         # Verify if there are additional authors 
-    add_authors =input("Does the dataset " + file_name + " have any additional authors, apart from you (Y/N)?" )
- 
-    # Clean input
-    add_authors_clean = yes_no_input(add_authors)
-
-    # If additional authors - ask for input and write as a list of dictionaries
-    art_authors = []
-
-    if add_authors_clean == 'y':
-        authors_input = input("Provide author names, separated by a coma: ") 
-        authors_input_list = authors_input.split(sep = ',')
-        authors_input_list_clean = list(map(str.strip, authors_input_list))
-        for author in authors_input_list_clean:
-            info = {"name": author }
-            art_authors.append(info)
-    else:
-        print("Understood, no additional authors.")
-    
-    return(art_authors)
+        add_authors =input("Does the dataset " + file_name + " have any additional authors, apart from you (Y/N)?" )
+        # Clean input
+        add_authors_clean = yes_no_input(add_authors)
+        # If additional authors - ask for input and write as a list of dictionaries
+        art_authors = []
+        if add_authors_clean == 'y':
+            authors_input = input("Provide author names, separated by a coma: ") 
+            authors_input_list = authors_input.split(sep = ',')
+            authors_input_list_clean = list(map(str.strip, authors_input_list))
+            for author in authors_input_list_clean:
+                info = {"name": author }
+                art_authors.append(info)
+        else:
+            print("Understood, no additional authors.")
+        
+        authors_list.append(art_authors)
+        
+    return(authors_list)
 
 def retrieve_metadata(file):
     ''' Retrieves metadata fields used in 4TU upload from the .GEF file
@@ -656,7 +685,9 @@ def publish_collection( collection_url, api_token):
     Whenever a new article/dataset is added to a collection it needs to be republished. This creates a new version of the public collection and DOI, e.g.:
         - https://doi.org/10.5074/c.2977400.v1
         - https://doi.org/10.5074/c.2977400.v2
-        - https://doi.org/10.5074/c.2977400.v3
+        - https://doi.org/10.5074/c.2977400
+
+    The latest version of the collection has not .vX appendix    
 
     Parameters
     ----------
@@ -675,3 +706,18 @@ def publish_collection( collection_url, api_token):
          return(collection_url)
     else:
         print ("Couldn't publish the collection.") 
+
+def test_gef_anchor(GEF_file):
+    ''' Tests if GEF type is correct
+
+    Parameters
+    ----------
+    GEF_file: str
+        Path to the file 
+    
+    '''
+    myGef = Gef2OpenClass()
+    myGef.read_gef(GEF_file)
+    if myGef.test_gef():
+        print('Datafile adheres to {} convention'.format(myGef.headerdict['REPORTCODE'][0]))
+

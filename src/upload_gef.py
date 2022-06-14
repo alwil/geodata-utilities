@@ -26,38 +26,37 @@ def main(netID):
     valid_users = {'awilczynski', 'acryan', 'mvankoningsveld', 'fedorbaart'}
     netID = netID.lower()
     assert netID in valid_users, "You do not have sufficient permissions to use this programme."
-
-    # Intro 
-    print("You're a few steps away from publishing your dataset. Before that, you need to provide some additional information about your dataset(s) ....")
-
-    # Choose the Sandbox or production
-    env_choice =  choose_entry_mode()
-    api_token = get_token(env_choice)
-    api_url = get_url(env_choice)
-    collection_chosen = get_collection_type()
-    file_format = get_file_format(collection_chosen)
-    file_list = get_file_path(collection_chosen)
+    action_choice = choose_action()
     
-    retrieved_meta = []
-    article_meta = []
-    for i, file in enumerate(file_list):
-        art_authors = request_authors(file)
-        retrieved_meta.append(retrieve_metadata(file))
-        article_meta.append(compile_metadata(collection_chosen, retrieved_meta[i], art_authors, env_choice))
-        article_url = create_article(api_url, article_meta[i], api_token)
-        article_doi = reserve_doi(article_url, api_token)
-        upload_dataset(article_url, api_token, file)
-        publish_article(article_url, api_token)
-        collection_url = add_to_collection( collection_chosen, article_url, api_token, env_choice)
-        publish_collection( collection_url, api_token)
+    if action_choice == 'upload':
+        # Intro 
+        print("You're a few steps away from publishing your dataset. Before that, you need to provide some additional information about your dataset(s) ....")
 
+        # Choose the Sandbox or production
+        env_choice =  choose_entry_mode()
+        api_token = get_token(env_choice)
+        api_url = get_url(env_choice)
+        collection_chosen = get_collection_type()
+        file_format = get_file_format(collection_chosen)
+        file_list = get_file_path(collection_chosen)
 
+    
+        retrieved_meta = []
+        article_meta = []
 
-
-
-
-
-
+        authors_list = request_authors(file_list)
+        for i, file in enumerate(file_list):
+            print('\n Preparing file ', i+1 , 'out of ', len(file_list),'\n')
+            test_gef_anchor(file)
+            #art_authors = request_authors(file)
+            retrieved_meta.append(retrieve_metadata(file))
+            article_meta.append(compile_metadata(collection_chosen, retrieved_meta[i], authors_list[i], env_choice))
+            article_url = create_article(api_url, article_meta[i], api_token)
+            #article_doi = reserve_doi(article_url, api_token)
+            upload_dataset(article_url, api_token, file)
+            #publish_article(article_url, api_token)
+            collection_url = add_to_collection( collection_chosen, article_url, api_token, env_choice)
+            #publish_collection( collection_url, api_token)
 
 
 
