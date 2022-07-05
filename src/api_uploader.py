@@ -4,8 +4,9 @@ import hashlib
 import os
 import re
 import sys
+import pandas as pd
 from config import AW_KEY, AW_KEY_SAND
-from gefreader import Gef2OpenClass
+from gefreader import Gef2OpenClass, is_number
 
 def yes_no_input(user_input):
         # Clean input
@@ -27,8 +28,9 @@ def choose_action():
     '''
 
     action_choices = ['Upload files to 4TU repository', 'Browse and retrieve files from 4TU repository']
-    action_choices_short = ['upload', 'etrieve']
+    action_choices_short = ['upload', 'retrieve']
 
+    input_string = ''
     for i, var in enumerate(action_choices):
         input_string += '\n'+ str(i) + '-' + var  
     input_string = 'What would you like to do? ' + input_string + '\n'
@@ -137,7 +139,7 @@ def get_categories(api_url, api_token ):
 
 def get_collection_type():
     '''
-    Function requests the user to provide input regarding the collection he wants to upload the data to,
+    Function requests the user to provide input regarding the collection he wants to upload the data to or retrieve data from,
     asserts the selected choice and retruns the selection in form of a string 
     
     '''
@@ -147,7 +149,7 @@ def get_collection_type():
     for i, var in enumerate(col_choices):
          input_string += '\n'+ str(i) + '-' + var  
     
-    input_string = "Which collection would you upload the datasets to?" + input_string + '\n'
+    input_string = "Which collection are you interested in?" + input_string + '\n'
     coll_type = input(input_string)
     
     coll_type_clean = int(re.sub("[^0-9]","", coll_type.lower() )) #  clean from unwanted characters
@@ -721,3 +723,131 @@ def test_gef_anchor(GEF_file):
     if myGef.test_gef():
         print('Datafile adheres to {} convention'.format(myGef.headerdict['REPORTCODE'][0]))
 
+    assert 'LOCATIONAME' in myGef.headerdict , 'File ' + os.path.basename(GEF_file) + ': field LOCATIONAME missing'
+    assert 'LOCATIONX'   in myGef.headerdict , 'File ' + os.path.basename(GEF_file) + ': field LOCATIONX missing'
+    assert 'LOCATIONY'   in myGef.headerdict , 'File ' + os.path.basename(GEF_file) + ': field LOCATIONY missing'
+    assert 'LOCATIONZ'   in myGef.headerdict , 'File ' + os.path.basename(GEF_file) + ': field LOCATIONZ missing'
+    assert 'TESTTYPE'    in myGef.headerdict , 'File ' + os.path.basename(GEF_file) + ': field TESTTYPE missing'
+    assert 'STARTDATE'   in myGef.headerdict , 'File ' + os.path.basename(GEF_file) + ': field STARTDATE missing'
+    assert 'ANCHORTYPE'  in myGef.headerdict , 'File ' + os.path.basename(GEF_file) + ': field ANCHORTYPE missing'
+
+    assert re.search('[a-zA-Z]+',  myGef.headerdict['LOCATIONAME'][0] ), 'File ' + os.path.basename(GEF_file) + ': field LOCATIONAME cannot be empty'
+    assert is_number(myGef.headerdict['LOCATIONX'][0]),   'File ' + os.path.basename(GEF_file) + ': field LOCATIONX should be a number'
+    assert myGef.headerdict['LOCATIONX'][0]>=-180 and myGef.headerdict['LOCATIONX'][0]<=180,   'File ' + os.path.basename(GEF_file) + ': field LOCATIONX should be within a range of -180 to 180'
+    assert is_number(myGef.headerdict['LOCATIONY'][0]),   'File ' + os.path.basename(GEF_file) + ': field LOCATIONY should be a number'
+    assert myGef.headerdict['LOCATIONY'][0]>=-90 and myGef.headerdict['LOCATIONY'][0]<=90,   'File ' + os.path.basename(GEF_file) + ': field LOCATIONY should be within a range of -90 to 90'
+    assert is_number(myGef.headerdict['LOCATIONZ'][0]),   'File ' + os.path.basename(GEF_file) + ': field LOCATIONZ should be a number'
+    assert re.search('investigation|suitability|acceptance',  myGef.headerdict['TESTTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field TESTTYPE should have one of the following values: \n - investigation\n - suitability\n - acceptance'
+    assert re.search('self-drilling|stranded|screw injection',  myGef.headerdict['ANCHORTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field ANCHORTYPE should have one of the following values: \n - self-drilling\n - stranded\n - screw injection'
+
+def browse_collection(collection_chosen, article_url, api_token):
+    '''
+    Provides a dataframe of articles available in the collection chosen by the user
+
+    Parameters
+    ----------
+    collection_chosen: str
+        Collection the aticle should be added to
+    article_url: str
+        URL of the article 
+    api_token: str
+        Personal token to access API 
+
+    Returns
+    ---------
+    collection_articles: pandas.DataFrame
+        A DataFrame holding articles of the collection        
+    '''
+    
+    # Keyword identifying collection
+    coll_keyword = 'colection-' + collection_chosen
+
+    params={
+    "search_for":":keyword: " + coll_keyword,
+    "institution": 898, #unique 4tu code
+    "item_type": 3, #item type is dataset
+    "page": 1,
+    "page_size": 1000 #adjust to number larger than anticipated search results
+    }
+
+    #request articles based on search parameters set above
+    response = requests.post(
+        url = article_url,
+        json = params,
+        headers = {"Authorization": f"token {api_token}"} 
+    )
+
+    if response.status_code >= 200 & response.status_code < 300 : 
+         print ("Collection datasets retrieved: \n.") 
+         articles = response.json()
+         collection_articles = pd.DataFrame.from_dict(articles)[['id', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]
+         print(collection_articles.head())
+         return(collection_articles)
+    else:
+        print ("Couldn't retrieve the collection.") 
+
+def get_article_ids(collection_articles):
+    '''
+    Provides a list of articles available in the collection chosen by the user
+
+    Parameters
+    ----------
+    collection_articles: pandas.DataFrame
+        A DataFrame holding articles of the collection 
+    Returns
+    ---------
+    '''
+    article_ids = collection_articles['id'].tolist()
+    return(article_ids)
+
+def retrieve_article_details(article_ids, api_token):
+    art=[]
+    for art_id in article_ids:
+        response = requests.get(
+        url = "https://api.figshare.com/v2/articles/"+str(art_id),
+        headers = {"Authorization": f"token {api_token}"}
+        )
+        art.append(response.json())
+
+def filter_articles(collection_chosen, article_url, api_token):    
+    '''
+    Provides a list of articles available in the collection chosen by the user, filtered by specific criteria
+
+    Parameters
+    ----------
+    collection_chosen: str
+        Collection the aticle should be added to
+    article_url: str
+        URL of the article 
+    api_token: str
+        Personal token to access API 
+
+    Returns
+    ---------
+    collection_articles: pandas.DataFrame
+        A DataFrame holding articles of the collection        
+    '''
+
+    coll_keyword = 'colection-'+collection_chosen
+
+    params={
+    "search_for":":keyword: " + coll_keyword,
+    # "search_for": "":description: " # w/o quotes will match any of the words included in the description field
+    "institution": 898, #unique 4tu code
+    "item_type": 3, #item type is dataset
+    "page": 1,
+    "page_size": 1000 #adjust to number larger than anticipated search results
+    }
+
+    #request articles based on search parameters set above
+    response = requests.post(
+        url = article_url,
+        json = params,
+        headers = {"Authorization": f"token {api_token}"} 
+    )
+
+    #store response as a json object
+    j = response.json()
+    # query in blocks of 10, while loop that continues until you get less than 10, so you know it's the last
+
+    #full list of search terms available at https://docs.figshare.com/#articles_search
