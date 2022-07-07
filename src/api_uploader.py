@@ -740,7 +740,7 @@ def test_gef_anchor(GEF_file):
     assert re.search('investigation|suitability|acceptance',  myGef.headerdict['TESTTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field TESTTYPE should have one of the following values: \n - investigation\n - suitability\n - acceptance'
     assert re.search('self-drilling|stranded|screw injection',  myGef.headerdict['ANCHORTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field ANCHORTYPE should have one of the following values: \n - self-drilling\n - stranded\n - screw injection'
 
-def browse_collection(collection_chosen, article_url, api_token):
+def browse_collection(collection_chosen, api_url, api_token):
     '''
     Provides a dataframe of articles available in the collection chosen by the user
 
@@ -755,8 +755,8 @@ def browse_collection(collection_chosen, article_url, api_token):
 
     Returns
     ---------
-    collection_articles: pandas.DataFrame
-        A DataFrame holding articles of the collection        
+    article_ids: list
+        List of article IDs in the collection        
     '''
     
     # Keyword identifying collection
@@ -772,42 +772,166 @@ def browse_collection(collection_chosen, article_url, api_token):
 
     #request articles based on search parameters set above
     response = requests.post(
-        url = article_url,
+        url = api_url,
         json = params,
         headers = {"Authorization": f"token {api_token}"} 
     )
 
     if response.status_code >= 200 & response.status_code < 300 : 
-         print ("Collection datasets retrieved: \n.") 
+         print ("Collection articles retrieved: \n.") 
          articles = response.json()
          collection_articles = pd.DataFrame.from_dict(articles)[['id', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]
-         print(collection_articles.head())
-         return(collection_articles)
+         article_ids = collection_articles['id'].tolist()
+         return(article_ids) 
+        # print(collection_articles.head())
+        # return(collection_articles)
     else:
         print ("Couldn't retrieve the collection.") 
 
-def get_article_ids(collection_articles):
+def get_article_details(article_ids,api_url, api_token ):
     '''
-    Provides a list of articles available in the collection chosen by the user
+    Provides details of articles from a collection
 
     Parameters
     ----------
-    collection_articles: pandas.DataFrame
-        A DataFrame holding articles of the collection 
+    article_ids: list
+        List of article IDs 
+    api_url: str
+        Figshare API URL  
+    api_token: str
+        Personal token to access API  
     Returns
     ---------
+    articles: pandas.DataFrame
+        A DataFrame holding details on articles of the collection 
     '''
-    article_ids = collection_articles['id'].tolist()
-    return(article_ids)
-
-def retrieve_article_details(article_ids, api_token):
-    art=[]
+    art = []
     for art_id in article_ids:
         response = requests.get(
-        url = "https://api.figshare.com/v2/articles/"+str(art_id),
-        headers = {"Authorization": f"token {api_token}"}
-        )
-        art.append(response.json())
+            url = f"{api_url}/articles/" + str(art_id),
+            headers = {"Authorization": f"token {api_token}"})
+        art.append(pd.json_normalize(response.json()))
+    
+    article_details = pd.concat(art)[['id','files','tags','categories','custom_fields','authors','description','license.name', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]   
+    return(article_details)
+
+def curate_article_details(article_details):  
+    '''
+    Curates the article detailes to provide all the information needed
+
+    Parameters
+    ----------
+    article_details: pandas.DataFrame
+        A DataFrame holding details on articles of the collection
+    Returns
+    ---------
+    art: pandas.DataFrame
+        A DataFrame holding all the useful information on articles of the collection, 
+    '''
+
+    article_ids = article_details['id'].tolist()
+
+    # retrieve data from dictionaries nested in the art dataframe
+    file_names=[]
+    files=[]
+    custom_fields_df = []
+    author_names =[]
+    categories=[]
+
+    for art_id in article_ids:  
+        #files
+        tmp_files = pd.json_normalize(article_details[article_details['id']==art_id].iloc[0]['files'])[['id', 'name', 'is_link_only', 'download_url']]
+        tmp_files = tmp_files.assign(article_id = art_id)
+        files.append(tmp_files)
+        tmp_filename = ', '.join(tmp_files["name"])
+        file_names.append(tmp_filename)
+    
+        #custom fields
+        custom_fields = ['Geolocation', 'Time coverage', 'Geolocation Longitude', 'Geolocation Latitude']
+        tmp_custom_fields_df = pd.json_normalize(article_details[article_details['id']==art_id].iloc[0]['custom_fields'])
+        tmp_custom_fields_df = tmp_custom_fields_df[tmp_custom_fields_df['name'].isin(custom_fields)]
+        tmp_custom_fields_df = tmp_custom_fields_df.set_index('name').T
+        tmp_custom_fields_df = tmp_custom_fields_df.assign(id = art_id)
+        custom_fields_df.append(tmp_custom_fields_df)
+
+        #authors 
+        tmp_authors = pd.json_normalize(article_details[article_details['id']==art_id].iloc[0]['authors'])[['full_name']]
+        tmp_authorname = ', '.join(tmp_authors["full_name"])
+        author_names.append(tmp_authorname)
+    
+        #categories 
+        tmp_categories = pd.json_normalize(article_details[article_details['id']==art_id].iloc[0]['categories'])[['title']]
+        tmp_categoryname = ', '.join(tmp_categories["title"])
+        categories.append(tmp_categoryname)
+          
+    art = article_details.assign(files = file_names)   
+    custom_fields_df = pd.concat(custom_fields_df)
+    art = pd.merge(art, custom_fields_df, how="inner", on=["id"])
+    art = art.assign(authors = author_names)  
+    art = art.assign(categories = categories)  
+
+    # Convert tags' list into coma separated string
+    art['keywords'] = [', '.join(map(str, l)) for l in art['tags']]
+
+    art = art[['title',
+    'id',
+    'published_date',
+    'files',
+    'categories',
+    'authors',
+    'description',
+    'license.name',
+    'doi',
+    'Time coverage',
+    'Geolocation',
+    'Geolocation Longitude',
+    'Geolocation Latitude'
+    ]]
+
+    return(art)
+
+def get_file_details(article_details):
+    '''
+    Curates the article detailes to provide all the information needed
+
+    Parameters
+    ----------
+    article_details: pandas.DataFrame
+        A DataFrame holding details on articles of the collection
+    Returns
+    ---------
+    files: pandas.DataFrame
+        A DataFrame holding all the useful information on files of the collection, 
+    '''
+
+    article_ids = article_details['id'].tolist()
+
+    # retrieve data from dictionaries nested in the art dataframe
+    files=[]
+
+    for art_id in article_ids:  
+        #files
+        tmp_files = pd.json_normalize(article_details[article_details['id']==art_id].iloc[0]['files'])[['id', 'name', 'is_link_only', 'download_url']]
+        tmp_files = tmp_files.assign(article_id = art_id)
+        files.append(tmp_files)
+
+    files = pd.concat(files)
+
+    return(files)
+
+def download_files(files):
+    '''
+    Download selected files
+
+    Parameters
+    ----------
+    article_details: pandas.DataFrame
+        A DataFrame holding details on articles of the collection
+    Returns
+    ---------
+    files: pandas.DataFrame
+        A DataFrame holding all the useful information on files of the collection, 
+    '''  
 
 def filter_articles(collection_chosen, article_url, api_token):    
     '''
