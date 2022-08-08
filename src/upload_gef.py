@@ -26,9 +26,12 @@ def main(netID):
     valid_users = {'awilczynski', 'acryan', 'mvankoningsveld', 'fedorbaart'}
     netID = netID.lower()
     assert netID in valid_users, "You do not have sufficient permissions to use this programme."
-    action_choice = choose_action()
     
-    if action_choice == 'upload':
+    action_choices = ['Upload files to 4TU repository', 'Browse and retrieve files from 4TU repository']
+    action_chosen = choose_one_option(action_choices)
+    
+    if action_chosen == 'Upload files to 4TU repository':
+
         # Intro 
         print("You're a few steps away from publishing your dataset. Before that, you need to provide some additional information about your dataset(s) ....")
 
@@ -40,7 +43,6 @@ def main(netID):
         file_format = get_file_format(collection_chosen)
         file_list = get_file_path(collection_chosen)
 
-    
         retrieved_meta = []
         article_meta = []
 
@@ -57,6 +59,14 @@ def main(netID):
             #publish_article(article_url, api_token)
             collection_url = add_to_collection( collection_chosen, article_url, api_token, env_choice)
             #publish_collection( collection_url, api_token)
+
+    elif action_chosen == 'Browse and retrieve files from 4TU repository':
+        testtype_choices = ['investigation', 'suitability' , 'acceptance']
+        choose_one_option(testtype_choices)
+
+        anchortype_choices = ['self-drilling', 'stranded' , 'screw injection']
+        choose_one_option(anchortype_choices)
+
 
 
 

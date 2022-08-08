@@ -16,6 +16,34 @@ def yes_no_input(user_input):
     assert user_input_clean in ['y', 'yes', 'n', 'no'] ,'I did not understand your selection. Please try again.'
     return(user_input_clean[0])
 
+def choose_one_option(choice_list):
+    '''
+    Function allows the user to choose one action from the provided list
+
+    Paramters
+    ----------
+    choice_list: list
+        List of choices to present to a user
+    Returns
+    ----------
+    action_chosen: str
+        The action the user wants to perform within the program
+
+    '''
+
+    input_string = ''
+    for i, var in enumerate(choice_list):
+        input_string += '\n'+ str(i) + '-' + var  
+    input_string = 'What would you like to choose? \n' + input_string + '\n'
+    choosen_action = input(input_string)
+    choosen_action_clean = int(re.sub("[^0-9]","", choosen_action.lower() )) #  clean from unwanted characters
+    
+    assert  choosen_action_clean in list(range(0, len(choice_list)-1 )), 'Wrong selection.'
+    
+    action_chosen = choice_list[choosen_action_clean]
+
+    return(action_chosen)
+
 def choose_action():
     '''
     Function allows the user to choose the action they want to perform
@@ -30,10 +58,11 @@ def choose_action():
     action_choices = ['Upload files to 4TU repository', 'Browse and retrieve files from 4TU repository']
     action_choices_short = ['upload', 'retrieve']
 
+    choose_one_option(action_choices_short)
     input_string = ''
     for i, var in enumerate(action_choices):
         input_string += '\n'+ str(i) + '-' + var  
-    input_string = 'What would you like to do? ' + input_string + '\n'
+    input_string = 'What would you like to choose? \n' + input_string + '\n'
     choosen_action = input(input_string)
     choosen_action_clean = int(re.sub("[^0-9]","", choosen_action.lower() )) #  clean from unwanted characters
     
@@ -778,7 +807,7 @@ def browse_collection(collection_chosen, api_url, api_token):
     )
 
     if response.status_code >= 200 & response.status_code < 300 : 
-         print ("Collection articles retrieved: \n.") 
+         print ("Collection articles retrieved. \n.") 
          articles = response.json()
          collection_articles = pd.DataFrame.from_dict(articles)[['id', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]
          article_ids = collection_articles['id'].tolist()
@@ -811,9 +840,12 @@ def get_article_details(article_ids,api_url, api_token ):
             url = f"{api_url}/articles/" + str(art_id),
             headers = {"Authorization": f"token {api_token}"})
         art.append(pd.json_normalize(response.json()))
-    
-    article_details = pd.concat(art)[['id','files','tags','categories','custom_fields','authors','description','license.name', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]   
-    return(article_details)
+   
+    if response.status_code >= 200 & response.status_code < 300 :  
+        article_details = pd.concat(art)[['id','files','tags','categories','custom_fields','authors','description','license.name', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]   
+        return(article_details)
+    else: 
+        print ("Couldn't retrieve the article details.")
 
 def curate_article_details(article_details):  
     '''
@@ -919,19 +951,36 @@ def get_file_details(article_details):
 
     return(files)
 
-def download_files(files):
+def download_files(files, api_url, api_token):
     '''
     Download selected files
 
     Parameters
     ----------
-    article_details: pandas.DataFrame
-        A DataFrame holding details on articles of the collection
-    Returns
-    ---------
     files: pandas.DataFrame
         A DataFrame holding all the useful information on files of the collection, 
+    Returns
+    ---------
+    
     '''  
+    file_location = input("Provide the file download location:")
+    assert os.path.isdir(file_location) , "Invalid directory"
+
+    file_ids = files['id'].tolist()
+
+    for index, file in files.iterrows():
+        file_name = file['name']
+        response = requests.get(
+            url = f"{api_url}/file/download/" + str(file['id']),
+            headers = {"Authorization": f"token {api_token}"})
+        if response.status_code == 200: 
+            open(os.path.join(file_location, file_name) , "wb").write(response.content)
+            if os.path.exists(os.path.join(file_location, file_name)): 
+                print("The file ID ", file['id'], ": ", file_name, " saved correctly.") 
+            else: 
+                print("The file ID ", file['id'], ": ", file_name, " couldn't be saved.")         
+        else:    
+            print("The file ID ", file['id'], ": ", file_name, " couldn't be retrieved.")    
 
 def filter_articles(collection_chosen, article_url, api_token):    
     '''
