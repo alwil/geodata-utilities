@@ -8,7 +8,24 @@ import pandas as pd
 from config import AW_KEY, AW_KEY_SAND
 from gefreader import Gef2OpenClass, is_number
 
+# Auxiliary functions
+
+
 def yes_no_input(user_input):
+    '''
+    Function that cleans out the Yes/No input and asserts that it is inserted correctly
+   
+    Parameters
+    -----------
+    user_input : str
+        String provided by the user as an answer to a Yes or No question
+
+    Returns
+    ------------
+    user_input_clean: str
+        Returns a cleaned, lower-case version of the user input
+    '''
+
         # Clean input
     user_input_clean = re.sub("[^a-z]","",user_input.lower())
     
@@ -38,95 +55,11 @@ def choose_one_option(choice_list):
     choosen_action = input(input_string)
     choosen_action_clean = int(re.sub("[^0-9]","", choosen_action.lower() )) #  clean from unwanted characters
     
-    assert  choosen_action_clean in list(range(0, len(choice_list)-1 )), 'Wrong selection.'
+    assert  choosen_action_clean in list(range(0, len(choice_list) )), 'Wrong selection.'
     
     action_chosen = choice_list[choosen_action_clean]
 
     return(action_chosen)
-
-def choose_action():
-    '''
-    Function allows the user to choose the action they want to perform
-
-    Returns
-    ----------
-    action_chosen: str
-        The action the user wants to perform within the program
-
-    '''
-
-    action_choices = ['Upload files to 4TU repository', 'Browse and retrieve files from 4TU repository']
-    action_choices_short = ['upload', 'retrieve']
-
-    choose_one_option(action_choices_short)
-    input_string = ''
-    for i, var in enumerate(action_choices):
-        input_string += '\n'+ str(i) + '-' + var  
-    input_string = 'What would you like to choose? \n' + input_string + '\n'
-    choosen_action = input(input_string)
-    choosen_action_clean = int(re.sub("[^0-9]","", choosen_action.lower() )) #  clean from unwanted characters
-    
-    assert  choosen_action_clean in list(range(0, len(action_choices)-1 )), 'Wrong selection.'
-    
-    action_chosen = action_choices_short[choosen_action_clean]
-
-    return(action_chosen)
-
-def choose_entry_mode():
-    '''
-    Function allows the user to choose between the Sandbox and main 4TU environment 
-    
-    '''
-    sbox_choice = input("Do you want to continue in the Sandbox environment? [Y/N]:") 
-    # Clean input
-    sbox_choice_clean = yes_no_input(sbox_choice)
-    
-    if sbox_choice_clean == 'y':
-        env_choice = "sandbox" 
-        print('Sandbox environment chosen')
-    else: 
-        env_choice = "4TU"
-        print('Production environment chosen')
-
-    return(env_choice)
-
-def get_url(env_choice):
-    '''
-    The function returns the API URL depending on which environment the user chose to upload the files 
-    
-    Parameters
-    ----------
-    env_choice : str
-        The environment the programme is to interact with ('4TU' or 'sandbox')
-        '''
-
-    assert env_choice in {'4TU' , 'sandbox'}, 'No valid environment chosen.'
-
-    # Get the right API depending on the environment ( 4TU, Sandbox)
-    if env_choice == 'sandbox':
-        api_url = "https://api.figsh.com/v2/" 
-    else: 
-        api_url = "https://api.figshare.com/v2/"
-
-    # Return the right api
-    return(api_url)
-    
-def get_token(env_choice):
-    '''
-    The function requests the personal token from the user 
-    
-    Parameters
-    ----------
-    env_choice : str
-        The environment the programme is to interact with ('4TU' or 'sandbox')
-        '''
-
-    assert env_choice in {'4TU' , 'sandbox'}, 'No valid environment chosen.'
-
-    api_token = input("Provide your presonal token for the " + env_choice + " environment: ")
-    
-    # Return the right api
-    return(api_token)
 
 def get_licences(api_url, api_token ):
     '''
@@ -209,6 +142,67 @@ def get_file_format(collection_chosen):
 
     return(file_format)
    
+
+# Overarching functions 
+def choose_entry_mode():
+    '''
+    Function allows the user to choose between the Sandbox and main 4TU environment 
+    
+    '''
+    sbox_choice = input("Do you want to continue in the Sandbox environment? [Y/N]:") 
+    # Clean input
+    sbox_choice_clean = yes_no_input(sbox_choice)
+    
+    if sbox_choice_clean == 'y':
+        env_choice = "sandbox" 
+        print('Sandbox environment chosen')
+    else: 
+        env_choice = "4TU"
+        print('Production environment chosen')
+
+    return(env_choice)
+
+def get_url(env_choice):
+    '''
+    The function returns the API URL depending on which environment the user chose to upload the files 
+    
+    Parameters
+    ----------
+    env_choice : str
+        The environment the programme is to interact with ('4TU' or 'sandbox')
+        '''
+
+    assert env_choice in {'4TU' , 'sandbox'}, 'No valid environment chosen.'
+
+    # Get the right API depending on the environment ( 4TU, Sandbox)
+    if env_choice == 'sandbox':
+        api_url = "https://api.figsh.com/v2/" 
+    else: 
+        api_url = "https://api.figshare.com/v2/"
+
+    # Return the right api
+    return(api_url)
+    
+def get_token(env_choice):
+    '''
+    The function requests the personal token from the user 
+    
+    Parameters
+    ----------
+    env_choice : str
+        The environment the programme is to interact with ('4TU' or 'sandbox')
+        '''
+
+    assert env_choice in {'4TU' , 'sandbox'}, 'No valid environment chosen.'
+
+    api_token = input("Provide your presonal token for the " + env_choice + " environment: ")
+    
+    # Return the right api
+  
+    return(api_token)
+
+
+# Functions to upload files
 def get_file_path(collection_chosen):
     '''
     Requests information about file_path where the datasets are placed and checks if the path exists and holds the file formats adequate for the collection chosen 
@@ -412,7 +406,7 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
         
 
    # 4. Key words
-   retrieved_dict['keywords'].append('colection-'+collection_chosen)
+   retrieved_dict['keywords'].append('collection-'+collection_chosen)
    art_keywords = retrieved_dict['keywords']
    # 5. Formats
    art_format = get_file_format(collection_chosen) # data format depending on the chosen collection
@@ -769,6 +763,8 @@ def test_gef_anchor(GEF_file):
     assert re.search('investigation|suitability|acceptance',  myGef.headerdict['TESTTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field TESTTYPE should have one of the following values: \n - investigation\n - suitability\n - acceptance'
     assert re.search('self-drilling|stranded|screw injection',  myGef.headerdict['ANCHORTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field ANCHORTYPE should have one of the following values: \n - self-drilling\n - stranded\n - screw injection'
 
+
+# Functions to browse and retrieve files
 def browse_collection(collection_chosen, api_url, api_token):
     '''
     Provides a dataframe of articles available in the collection chosen by the user
@@ -801,12 +797,13 @@ def browse_collection(collection_chosen, api_url, api_token):
 
     #request articles based on search parameters set above
     response = requests.post(
-        url = api_url,
+        url = f"{api_url}/articles/search",
         json = params,
         headers = {"Authorization": f"token {api_token}"} 
     )
+    
 
-    if response.status_code >= 200 & response.status_code < 300 : 
+    if response.status_code == 200 : 
          print ("Collection articles retrieved. \n.") 
          articles = response.json()
          collection_articles = pd.DataFrame.from_dict(articles)[['id', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]
@@ -982,6 +979,38 @@ def download_files(files, api_url, api_token):
         else:    
             print("The file ID ", file['id'], ": ", file_name, " couldn't be retrieved.")    
 
+def choose_filter(filter_name, choice_list):
+
+    '''
+    Function to filter the results by specific keyword
+   
+    Parameters
+    -----------
+    filter_name : str
+        Name of one of the filters available in the GEF file keyword
+    choice_list: list
+        List of choices to present to a user     
+
+    Returns
+    ------------
+    chosen_filter : str
+        Filter option chosen by the user
+    '''
+    input_string = "Would you like to filter the datasets by " + filter_name +"? [Y/N]: "
+
+    filter_choice = input(input_string) 
+    
+    # Clean input
+    filter_choice_clean = yes_no_input(filter_choice)
+    
+    if filter_choice_clean == 'y':
+        chosen_filter = choose_one_option(choice_list)
+        chosen_filter = filter_name.upper() + '=' + chosen_filter
+    else:
+        chosen_filter = []
+    
+    return(chosen_filter)
+
 def filter_articles(collection_chosen, article_url, api_token):    
     '''
     Provides a list of articles available in the collection chosen by the user, filtered by specific criteria
@@ -1024,3 +1053,5 @@ def filter_articles(collection_chosen, article_url, api_token):
     # query in blocks of 10, while loop that continues until you get less than 10, so you know it's the last
 
     #full list of search terms available at https://docs.figshare.com/#articles_search
+
+

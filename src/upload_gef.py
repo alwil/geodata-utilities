@@ -27,20 +27,29 @@ def main(netID):
     netID = netID.lower()
     assert netID in valid_users, "You do not have sufficient permissions to use this programme."
     
+    # Choose the selection
+    collection_chosen = get_collection_type()
+    file_format = get_file_format(collection_chosen)
+
+    # Choose the Sandbox or production environment and get the right URL
+    env_choice =  choose_entry_mode()
+    api_url = get_url(env_choice)
+
+    # Input token for the chosen environment
+    api_token = get_token(env_choice)
+
+    # Selection of programme actions 
     action_choices = ['Upload files to 4TU repository', 'Browse and retrieve files from 4TU repository']
     action_chosen = choose_one_option(action_choices)
     
+    
+    # Programme actions if upload files chosen
     if action_chosen == 'Upload files to 4TU repository':
 
         # Intro 
         print("You're a few steps away from publishing your dataset. Before that, you need to provide some additional information about your dataset(s) ....")
 
-        # Choose the Sandbox or production
-        env_choice =  choose_entry_mode()
-        api_token = get_token(env_choice)
-        api_url = get_url(env_choice)
-        collection_chosen = get_collection_type()
-        file_format = get_file_format(collection_chosen)
+        
         file_list = get_file_path(collection_chosen)
 
         retrieved_meta = []
@@ -61,11 +70,8 @@ def main(netID):
             #publish_collection( collection_url, api_token)
 
     elif action_chosen == 'Browse and retrieve files from 4TU repository':
-        testtype_choices = ['investigation', 'suitability' , 'acceptance']
-        choose_one_option(testtype_choices)
-
-        anchortype_choices = ['self-drilling', 'stranded' , 'screw injection']
-        choose_one_option(anchortype_choices)
+        
+        
 
 
 
