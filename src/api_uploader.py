@@ -10,7 +10,6 @@ from gefreader import Gef2OpenClass, is_number
 
 # Auxiliary functions
 
-
 def yes_no_input(user_input):
     '''
     Function that cleans out the Yes/No input and asserts that it is inserted correctly
@@ -1054,4 +1053,11 @@ def filter_articles(collection_chosen, article_url, api_token):
 
     #full list of search terms available at https://docs.figshare.com/#articles_search
 
+def show_preview(article_details, page = 1):
+
+    # 1) print(' This is a preview...')
+    print( 'This is the preview of the datasets from the chosen collection ....')
+    # 2) show first 10 articles
+    article_details[(page-1)* 10, page*10]
+    # 3) show how many articles there are in total
 

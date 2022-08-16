@@ -4,7 +4,7 @@ from datetime import datetime
 #from bulk_entry import *
 from api_uploader import *
 
-def main(netID):
+def main( netID ):
     """
     1. Verify if the user has the right credentials
     2. Check which collection the user wants to contribute to
@@ -29,18 +29,18 @@ def main(netID):
     
     # Choose the selection
     collection_chosen = get_collection_type()
-    file_format = get_file_format(collection_chosen)
+    file_format = get_file_format( collection_chosen )
 
     # Choose the Sandbox or production environment and get the right URL
     env_choice =  choose_entry_mode()
-    api_url = get_url(env_choice)
+    api_url = get_url( env_choice )
 
     # Input token for the chosen environment
-    api_token = get_token(env_choice)
+    api_token = get_token( env_choice )
 
     # Selection of programme actions 
     action_choices = ['Upload files to 4TU repository', 'Browse and retrieve files from 4TU repository']
-    action_chosen = choose_one_option(action_choices)
+    action_chosen = choose_one_option( action_choices )
     
     
     # Programme actions if upload files chosen
@@ -70,13 +70,24 @@ def main(netID):
             #publish_collection( collection_url, api_token)
 
     elif action_chosen == 'Browse and retrieve files from 4TU repository':
-        
-        
+        article_ids = browse_collection( collection_chosen, api_url, api_token )
+        article_details = get_article_details( article_ids, api_url, api_token )
+        article_details = curate_article_details(article_details)
+        #show_preview(article_details)
+        # loop  from page 2 until the answer is no or the file reached the and:
+        # ask if show next page 
+        # if yes show the next page continue
+        # If no, break the loop
 
+        print("What would you like to do next?")
+        browsing_options = ['Download all the files', 'Filter by keywords']
+        browsing_chosen = choose_one_option( browsing_options ) 
+        if browsing_chosen == 'Download all the files':
+            files = get_file_details(article_details)
+            download_files(files, api_url, api_token)
+        elif browsing_chosen == 'Filter by keywords':
 
-
-
-
+        #choose_filter(filter_name, choice_list)
 
 
 if __name__ == "__main__":
@@ -88,4 +99,4 @@ if __name__ == "__main__":
         print("No NetID specified")
         sys.exit(1)          
 
-    main(netID)
+    main( netID )
