@@ -44,6 +44,7 @@ def main( netID ):
     
     
     # Programme actions if upload files chosen
+    
     if action_chosen == 'Upload files to 4TU repository':
 
         # Intro 
@@ -54,7 +55,7 @@ def main( netID ):
 
         retrieved_meta = []
         article_meta = []
-
+       
         authors_list = request_authors(file_list)
         for i, file in enumerate(file_list):
             print('\n Preparing file ', i+1 , 'out of ', len(file_list),'\n')
@@ -73,25 +74,30 @@ def main( netID ):
         article_ids = browse_collection( collection_chosen, api_url, api_token )
         article_details = get_article_details( article_ids, api_url, api_token )
         article_details = curate_article_details(article_details)
-        #show_preview(article_details)
-        # loop  from page 2 until the answer is no or the file reached the and:
-        # ask if show next page 
-        # if yes show the next page continue
-        # If no, break the loop
-
+        print(article_details)
         print("What would you like to do next?")
-        browsing_options = ['Download all the files', 'Filter by keywords']
+        browsing_options = ['Download all the files', 'Filter by keywords', 'Show the files on the map']
         browsing_chosen = choose_one_option( browsing_options ) 
         if browsing_chosen == 'Download all the files':
             files = get_file_details(article_details)
             download_files(files, api_url, api_token)
         elif browsing_chosen == 'Filter by keywords':
-
-        #choose_filter(filter_name, choice_list)
+            filters_closed = ['Test type', 'Anchor type']
+            filters_open = ['Location name', 'Location coordinates (X,Y)', 'Location Z']
+            filters_date = ['Time coverage']
+            filters = ['Test type', 'Anchor type', 'Location name', 'Location coordinates (X,Y)', 'Location Z', 'Time coverage']
+            chosen_filters = choose_multiple(filters)
+            
+            # Add a warning message, if no digits were selected
+            if chosen_filters == []:
+                print("ATTENTION! You have not selected any filter.")
+                time.sleep(0.6) # not to have all printed to the terminal at once
+                return(choice_list)
+    else: 
+            opts_filter_closed = {'Test type':'GEF', 'Anchor type': 'foo'} 
 
 
 if __name__ == "__main__":
-     
 
     try:
         netID = sys.argv[1]

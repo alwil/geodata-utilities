@@ -1,3 +1,4 @@
+from turtle import shape
 import requests
 import json
 import hashlib
@@ -5,11 +6,12 @@ import os
 import re
 import sys
 import pandas as pd
+import time
+from operator import itemgetter
 from config import AW_KEY, AW_KEY_SAND
 from gefreader import Gef2OpenClass, is_number
 
 # Auxiliary functions
-
 def yes_no_input(user_input):
     '''
     Function that cleans out the Yes/No input and asserts that it is inserted correctly
@@ -141,6 +143,26 @@ def get_file_format(collection_chosen):
 
     return(file_format)
    
+def choose_multiple(choice_list):
+    input_string = ''
+    n_choice = len(choice_list)
+    #which_chosen = [0] * n_choice
+
+    for i, var in enumerate(choice_list):
+        input_string += '\n'+ str(i) + '-' + var  
+         
+    input_string = "Which option you want to choose? \nType in corresponding numbers, separated by coma:" + input_string + '\n'
+
+    which_choice = input( input_string ) 
+    which_choice_clean = re.findall(r'\b\d{1,3}(?:,\d{3})*(?!\d)', which_choice) # Source: https://stackoverflow.com/questions/63714217/how-can-i-extract-numbers-containing-commas-from-strings-in-python
+    which_choice_clean = [int(y) for y in which_choice_clean if int(y) <= n_choice-1 ]
+    if which_choice_clean == []:
+        chosen_list = which_choice_clean
+    else:
+        chosen_list = list(itemgetter(*which_choice_clean)(choice_list))
+
+    return(chosen_list)
+
 
 # Overarching functions 
 def choose_entry_mode():
@@ -264,7 +286,7 @@ def request_authors(file_list):
     for i, file in enumerate(file_list):
         file_name = os.path.basename(file)
         # Verify if there are additional authors 
-        add_authors =input("Does the dataset " + file_name + " have any additional authors, apart from you (Y/N)?" )
+        add_authors =input("Does the dataset " + file_name + " have any additional authors, apart from you [Y/N]?" )
         # Clean input
         add_authors_clean = yes_no_input(add_authors)
         # If additional authors - ask for input and write as a list of dictionaries
@@ -653,6 +675,9 @@ def add_to_collection( collection_chosen, article_url, api_token, env_choice):
     NOTE 
     Whenever a collection is altered, it needs to be republished for the changes to be seen publicly.  
 
+    NOTE 
+    The collection IDs are hardcoded - need to ba altered when a collection is created
+
     Parameters
     ----------
     collection_chosen: str
@@ -792,8 +817,9 @@ def browse_collection(collection_chosen, api_url, api_token):
     "item_type": 3, #item type is dataset
     "page": 1,
     "page_size": 1000 #adjust to number larger than anticipated search results
-    }
 
+    }
+    
     #request articles based on search parameters set above
     response = requests.post(
         url = f"{api_url}/articles/search",
@@ -802,14 +828,12 @@ def browse_collection(collection_chosen, api_url, api_token):
     )
     
 
-    if response.status_code == 200 : 
+    if response.status_code == 200 and response.json() != [] : 
          print ("Collection articles retrieved. \n.") 
          articles = response.json()
          collection_articles = pd.DataFrame.from_dict(articles)[['id', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]
          article_ids = collection_articles['id'].tolist()
          return(article_ids) 
-        # print(collection_articles.head())
-        # return(collection_articles)
     else:
         print ("Couldn't retrieve the collection.") 
 
@@ -979,7 +1003,6 @@ def download_files(files, api_url, api_token):
             print("The file ID ", file['id'], ": ", file_name, " couldn't be retrieved.")    
 
 def choose_filter(filter_name, choice_list):
-
     '''
     Function to filter the results by specific keyword
    
@@ -1053,11 +1076,25 @@ def filter_articles(collection_chosen, article_url, api_token):
 
     #full list of search terms available at https://docs.figshare.com/#articles_search
 
-def show_preview(article_details, page = 1):
 
+def show_preview(article_details, page = 1):
+    '''
+    Function previews the chosen 10 articles retrieved from the API
+   
+    Parameters
+    -----------
+    article_details: pandas.DataFrame
+        A DataFrame holding details on articles of the collection
+    page: int
+        Number of page to by shown     
+    '''
+
+    # to test: coll_keyword = 'Collection: Atmospheric observations IDRA, Cabauw'
     # 1) print(' This is a preview...')
     print( 'This is the preview of the datasets from the chosen collection ....')
-    # 2) show first 10 articles
-    article_details[(page-1)* 10, page*10]
-    # 3) show how many articles there are in total
+
+    # 2) show  10 articles from the page & show how many articles there are in total
+    time.sleep(0.6)
+    print(f'{(page-1)* 10 +1}-{min(page*10 -1,article_details.shape[0])} out of {article_details.shape[0]} articles\n {repr(article_details[(page-1)* 10 : page*10])}')
+    
 
