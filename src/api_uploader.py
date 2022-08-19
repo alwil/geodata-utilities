@@ -788,7 +788,6 @@ def test_gef_anchor(GEF_file):
     assert re.search('investigation|suitability|acceptance',  myGef.headerdict['TESTTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field TESTTYPE should have one of the following values: \n - investigation\n - suitability\n - acceptance'
     assert re.search('self-drilling|stranded|screw injection',  myGef.headerdict['ANCHORTYPE'][0] ), 'File ' + os.path.basename(GEF_file) + ': field ANCHORTYPE should have one of the following values: \n - self-drilling\n - stranded\n - screw injection'
 
-
 # Functions to browse and retrieve files
 def browse_collection(collection_chosen, api_url, api_token):
     '''
@@ -1080,26 +1079,3 @@ def filter_articles(collection_chosen, article_url, api_token):
     # query in blocks of 10, while loop that continues until you get less than 10, so you know it's the last
 
     #full list of search terms available at https://docs.figshare.com/#articles_search
-
-
-def show_preview(article_details, page = 1):
-    '''
-    Function previews the chosen 10 articles retrieved from the API
-   
-    Parameters
-    -----------
-    article_details: pandas.DataFrame
-        A DataFrame holding details on articles of the collection
-    page: int
-        Number of page to by shown     
-    '''
-
-    # to test: coll_keyword = 'Collection: Atmospheric observations IDRA, Cabauw'
-    # 1) print(' This is a preview...')
-    print( 'This is the preview of the datasets from the chosen collection ....')
-
-    # 2) show  10 articles from the page & show how many articles there are in total
-    time.sleep(0.6)
-    print(f'{(page-1)* 10 +1}-{min(page*10 -1,article_details.shape[0])} out of {article_details.shape[0]} articles\n {repr(article_details[(page-1)* 10 : page*10])}')
-    
-

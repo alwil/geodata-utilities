@@ -52,3 +52,6 @@ MANIFEST
 *.mp4
 *.kml
 .vscode/settings.json
+
+# Coniguration file 
+config.py

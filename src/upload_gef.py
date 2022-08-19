@@ -92,7 +92,7 @@ def main( netID ):
                               'Test type':   {'filter':'choice', 'answers':['investigation','suitability','acceptance'] }, 
                               'Anchor type': {'filter':'choice', 'answers':['self-drilling','stranded','screw injection'] },
                                'Location name': 'text',
-                               'Location coordinates (X,Y)': 'range', 'Location Z':'range', 'Time coverage':'daterange'}
+                               'Location coordinates (X,Y)': {'range'}, 'Location Z':'range', 'Time coverage':'daterange'}
 
                 chosen_filters = choose_multiple(filters)
                          
