@@ -11,6 +11,7 @@ from operator import itemgetter
 from config import AW_KEY, AW_KEY_SAND
 from gefreader import Gef2OpenClass, is_number
 
+
 # Auxiliary functions
 def yes_no_input(user_input):
     '''
@@ -52,7 +53,7 @@ def choose_one_option(choice_list):
     input_string = ''
     for i, var in enumerate(choice_list):
         input_string += '\n'+ str(i) + '-' + var  
-    input_string = 'What would you like to choose? \n' + input_string + '\n'
+    input_string = 'Choose one option [Type in option number] \n' + input_string + '\n'
     choosen_action = input(input_string)
     choosen_action_clean = int(re.sub("[^0-9]","", choosen_action.lower() )) #  clean from unwanted characters
     
@@ -141,7 +142,7 @@ def get_file_format(collection_chosen):
     coll_data_formats = {'grout':'GEF', 'xxx': 'foo', 'yyy': 'bar', 'zzz': 'baz'} 
     file_format = coll_data_formats[collection_chosen] # data format depending on the chosen collection
 
-    return(file_format)
+    return(file_format)  
    
 def choose_multiple(choice_list):
     input_string = ''
@@ -809,11 +810,11 @@ def browse_collection(collection_chosen, api_url, api_token):
     '''
     
     # Keyword identifying collection
-    coll_keyword = 'colection-' + collection_chosen
+    coll_keyword = '\"collection-' + collection_chosen + '\"'
 
     params={
     "search_for":":keyword: " + coll_keyword,
-    "institution": 898, #unique 4tu code
+    #"institution": 898, #unique 4tu code  <- only production env. need to adapt so that the sandbox included too 
     "item_type": 3, #item type is dataset
     "page": 1,
     "page_size": 1000 #adjust to number larger than anticipated search results
@@ -834,8 +835,12 @@ def browse_collection(collection_chosen, api_url, api_token):
          collection_articles = pd.DataFrame.from_dict(articles)[['id', 'title', 'doi', 'published_date', 'defined_type_name', 'resource_doi']]
          article_ids = collection_articles['id'].tolist()
          return(article_ids) 
-    else:
-        print ("Couldn't retrieve the collection.") 
+    
+    elif response.status_code == 200 and response.json() == []:
+        print ("No collection items found.") 
+
+    else :
+        print ("Couldn't retrieve the collection.")     
 
 def get_article_details(article_ids,api_url, api_token ):
     '''

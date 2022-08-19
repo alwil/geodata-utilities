@@ -1,7 +1,6 @@
 
 import sys
 from datetime import datetime
-#from bulk_entry import *
 from api_uploader import *
 
 def main( netID ):
@@ -72,29 +71,47 @@ def main( netID ):
 
     elif action_chosen == 'Browse and retrieve files from 4TU repository':
         article_ids = browse_collection( collection_chosen, api_url, api_token )
-        article_details = get_article_details( article_ids, api_url, api_token )
-        article_details = curate_article_details(article_details)
-        print(article_details)
-        print("What would you like to do next?")
-        browsing_options = ['Download all the files', 'Filter by keywords', 'Show the files on the map']
-        browsing_chosen = choose_one_option( browsing_options ) 
-        if browsing_chosen == 'Download all the files':
-            files = get_file_details(article_details)
-            download_files(files, api_url, api_token)
-        elif browsing_chosen == 'Filter by keywords':
-            filters_closed = ['Test type', 'Anchor type']
-            filters_open = ['Location name', 'Location coordinates (X,Y)', 'Location Z']
-            filters_date = ['Time coverage']
-            filters = ['Test type', 'Anchor type', 'Location name', 'Location coordinates (X,Y)', 'Location Z', 'Time coverage']
-            chosen_filters = choose_multiple(filters)
-            
-            # Add a warning message, if no digits were selected
-            if chosen_filters == []:
-                print("ATTENTION! You have not selected any filter.")
-                time.sleep(0.6) # not to have all printed to the terminal at once
-                return(choice_list)
-    else: 
-            opts_filter_closed = {'Test type':'GEF', 'Anchor type': 'foo'} 
+
+        if article_ids != None:
+            article_details = get_article_details( article_ids, api_url, api_token )
+            article_printable = curate_article_details(article_details)
+            print(article_printable)
+            time.sleep(0.6)
+            print("What would you like to do next?")
+            browsing_options = ['Download all the files', 'Filter by keywords', 'Show the files on the map']
+            browsing_chosen = choose_one_option( browsing_options ) 
+            if browsing_chosen == 'Download all the files':
+                files = get_file_details(article_details)
+                download_files(files, api_url, api_token)
+            elif browsing_chosen == 'Filter by keywords':
+                # filters_closed = ['Test type', 'Anchor type']
+                # filters_open = ['Location name', 'Location coordinates (X,Y)', 'Location Z']
+                # filters_date = ['Time coverage']
+                filters = ['Test type', 'Anchor type', 'Location name', 'Location coordinates (X,Y)', 'Location Z', 'Time coverage']
+                filter_type = {
+                              'Test type':   {'filter':'choice', 'answers':['investigation','suitability','acceptance'] }, 
+                              'Anchor type': {'filter':'choice', 'answers':['self-drilling','stranded','screw injection'] },
+                               'Location name': 'text',
+                               'Location coordinates (X,Y)': 'range', 'Location Z':'range', 'Time coverage':'daterange'}
+
+                chosen_filters = choose_multiple(filters)
+                         
+                # Add a warning message, if no digits were selected
+                if chosen_filters == []:
+                    print("ATTENTION! You have not selected any filter.")
+                    time.sleep(0.6) # not to have all printed to the terminal at once
+                    #return(choice_list)
+
+
+
+
+            elif browsing_chosen == 'Show the files on the map': 
+                print('A map will be here')
+        else : 
+            # potentially looping program actions in the future
+            sys.exit()
+
+
 
 
 if __name__ == "__main__":

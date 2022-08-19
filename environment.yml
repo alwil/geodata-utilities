@@ -1,0 +1,9 @@
+name: figshare_env
+channels:
+  - defaults
+dependencies:
+  - pandas
+  - python=3.9.7
+  - requests
+  - shiny
+
