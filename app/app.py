@@ -1,8 +1,9 @@
 from shiny import App, render, ui, reactive
-#from src.api_uploader import * 
+from api_funs import *
+import os
 
 choices = {"a": "Choice A", "b": "Choice B"}
-action_choices = {'a': 'Upload files to 4TU repository', 'b': 'Browse and retrieve files from 4TU repository'}
+action_choices = {'upload': 'Upload files to 4TU repository', 'download': 'Browse and retrieve files from 4TU repository'}
 col_choices = {'grout': 'Grout Collection', 'xxx': 'xxx', 'yyy': 'yyy', 'zzz': 'zzz'}
 yn_choices = {'y':'Yes','n':'No'}
 
@@ -36,36 +37,52 @@ app_ui = ui.page_fluid(
         ui.panel_main(
         ui.navset_tab(
 
-            ui.nav("Welcome",
-            ui.h4("How to use this app?"),
+            ui.nav("Intro",
+            ui.h4("Welcome"),
             ui.p(
                 """
-                When we train Machine Learning models like linear regressions, logistic
-                regressions, or neural networks, we do so by defining a loss function
-                and minimizing that loss function. A loss function is a metric for
-                measuring how your model is performing where lower is better. For
-                example, Mean Squared Error is a loss function that measures the squared
-                distance (on average) between a model's guesses and the true values."""
+
+                Welcome to the GEF handler. In the app, you can upload .GEF files to 4TUResearchData repository,
+                download files from the Grout data collection and visualise the data on the map. 
+                """),
+            ui.h4("Prerequisites"), 
+            ui.p(
+                """
+                To use this tool, you need an account in the 4TU ResearchData. You will also need to create a personal token."""),   
+            ui.h4("How to use this app?"),
+            ui.tags.ul(
+                ui.tags.li(
+                    """
+                        In the sidebar to the left, provide your netID and click 'Start'"""
+                ),
+                ui.tags.li(
+                    """
+                        Provide your 4TU personal token, collection you are interested in, environment you want to use andclick 'Run'."""
+                ),
+                ui.tags.li(
+                    """
+                        If you want to upload your Gef files, go to the 'Upload' page, if you want to browse and retrieve files, go to 'Download'"""
+                ),
+
             ),
-            
             ),
             
             ui.nav("Upload",
-             ui.output_ui("ui_filepath") 
+             ui.output_ui("ui_filepath"), 
+             ui.output_ui("ui_authors") 
              ),
 
             ui.nav("Download",
-             "tab download content"
+             
              )
 
             )    
     )
     )
-
 )
 
-
 def server(input, output, session):
+
     @reactive.Effect
     @reactive.event(input.checkID)
     def netIDnotification():
@@ -83,7 +100,6 @@ def server(input, output, session):
         easy_close=True,
         footer=None
         )
-
         if(not verify_id( input.netid(),valid_users )):
             ui.modal_show(m)        
 
@@ -91,7 +107,53 @@ def server(input, output, session):
     @reactive.event(input.sidebar_complete)
     def SidebarCompletenotification():
         if( not (input.api_token() and input.sandbox() and input.collection()) ):    
-            ui.notification_show("Selection incomplete", type="error")        
+            ui.notification_show("Selection incomplete", type="error")  
+
+    @reactive.Calc
+    def env_choice():
+        return choose_entry_mode(input.sandbox())
+
+    @reactive.Calc
+    def api_url():
+        return get_url(env_choice())    
+
+    @reactive.Calc
+    def auth_successful():
+        response = requests.get(
+        url = api_url()+"account/licenses", # private licences list
+        headers = {"Authorization": f"token {input.api_token()}"}
+        )
+        if response.status_code==200:
+            return('Authorisation Successful') 
+        elif response.status_code==403 and  'code' in  response.json() and  response.json()['code'] ==  'OAuthInvalidToken':
+            return('Invalid Token. Please provide a valid 4TUResearchData token')
+        else: 
+            return('Unknown error. Please try again later.')    
+
+    @reactive.Calc
+    def file_format():
+        return( get_file_format(input.collection()) )
+    
+  
+    @reactive.Effect
+    @reactive.event(input.sidebar_complete)
+    def TokenError():
+        m = ui.modal(
+        auth_successful(),
+        title="Authorisation failed",
+        easy_close=True,
+        footer=None
+        )
+        if( auth_successful()!= 'Authorisation Successful' ):
+            ui.modal_show(m)
+
+    @reactive.Effect
+    @reactive.event(input.sidebar_complete)
+    def TokenNotification():
+        if(auth_successful()== 'Authorisation Successful'):
+            ui.notification_show(auth_successful())
+        else:    
+            ui.notification_show(auth_successful(), type="error")                       
      
     @output
     @render.ui
@@ -103,7 +165,7 @@ def server(input, output, session):
                 return ui.TagList(
                     ui.input_select("collection", "Which collection are you interested in?", col_choices, selected = None),
                     ui.input_radio_buttons("sandbox", "Do you want to continue in the Sandbox environment?", yn_choices, selected = None),
-                    ui.input_password ("api_token", "Provide API token:", placeholder="Enter token"),
+                    ui.input_text("api_token", "Provide API token:", placeholder="Enter token"),
                     ui.input_action_button("sidebar_complete", "Run")
                     )
     
@@ -112,8 +174,33 @@ def server(input, output, session):
     def ui_filepath():
         input.sidebar_complete()
         with reactive.isolate():
-            if input.api_token() and input.sandbox() and input.collection():
+            if input.api_token() and input.sandbox() and input.collection() and auth_successful() == 'Authorisation Successful':
                 return( ui.input_file("file_upload", "Choose file(s) to upload:", multiple=True) )
 
+    @reactive.Calc
+    def good_files_infos():
+        file_infos = input.file_upload()
+        good_file_infos = []
+        for file_info in file_infos:
+            name = file_info["name"]
+            if name.endswith(file_format()):
+                good_file_infos.append(file_info)
+        return(good_file_infos)
+
+
+    @output
+    @render.ui
+    def ui_authors():
+        input_list = []
+        for file_info in good_files_infos():
+            name = file_info["name"]
+            input_list.append( ui.input_text("collection", name, placeholder="Additional authors") )
+
+            return ui.TagList(
+                'Add additional authors (other than you), separated by a coma:\n',
+                input_list
+                )
+
+                          
 
 app = App(app_ui, server)
