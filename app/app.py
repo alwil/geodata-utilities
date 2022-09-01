@@ -18,7 +18,6 @@ def verify_id(user_input, valid_users ):
         return(user_input_clean in valid_users)
 
 
-
 app_ui = ui.page_fluid(
     ui.panel_title("GEF files handler"),
 
@@ -68,8 +67,9 @@ app_ui = ui.page_fluid(
             ),
             
             ui.nav("Upload",
-             ui.output_ui("ui_filepath"), 
-             ui.output_ui("ui_authors") 
+             ui.output_ui("ui_filepath"),
+             ui.output_ui("ui_which_authors"), 
+             ui.output_ui("ui_authors"),
              ),
 
             ui.nav("Download",
@@ -167,18 +167,21 @@ def server(input, output, session):
                     ui.input_radio_buttons("sandbox", "Do you want to continue in the Sandbox environment?", yn_choices, selected = None),
                     ui.input_text("api_token", "Provide API token:", placeholder="Enter token"),
                     ui.input_action_button("sidebar_complete", "Run")
-                    )
-    
+                    )                   
+
     @output
     @render.ui
     def ui_filepath():
         input.sidebar_complete()
         with reactive.isolate():
             if input.api_token() and input.sandbox() and input.collection() and auth_successful() == 'Authorisation Successful':
-                return( ui.input_file("file_upload", "Choose file(s) to upload:", multiple=True) )
+                return( ui.input_file("file_upload", "Choose file(s) to upload:", multiple=True, accept = f".{file_format()}") )
 
+    
     @reactive.Calc
     def good_files_infos():
+        if not input.file_upload():
+            return
         file_infos = input.file_upload()
         good_file_infos = []
         for file_info in file_infos:
@@ -187,20 +190,50 @@ def server(input, output, session):
                 good_file_infos.append(file_info)
         return(good_file_infos)
 
+    @reactive.Calc
+    def files_names_noext():
+        file_infos = good_files_infos()
+        if not file_infos:
+            return
+        file_names= [d['name'] for d in file_infos if 'name' in d] 
+        file_names = list(map(lambda x: os.path.splitext(x)[0], file_names))
+        return(file_names)
 
     @output
     @render.ui
-    def ui_authors():
-        input_list = []
-        for file_info in good_files_infos():
-            name = file_info["name"]
-            input_list.append( ui.input_text("collection", name, placeholder="Additional authors") )
+    def ui_which_authors(): 
+        input.file_upload()
+        with reactive.isolate():
+            file_infos = good_files_infos()
+            if not file_infos:
+                return
+            file_names= [d['name'] for d in file_infos if 'name' in d] 
+            author_input_list = ui.TagList('Provide additional author names, separated by a coma:\n')   
+            for i, file_name in enumerate(file_names):
+                author_input_list.append(ui.input_text(files_names_noext()[i], file_name, placeholder = 'Additional authors'))
+            author_input_list.append(ui.input_action_button('upload_4tu', 'Upload files'))
+            return(author_input_list)    
 
-            return ui.TagList(
-                'Add additional authors (other than you), separated by a coma:\n',
-                input_list
-                )
+    @reactive.Calc
+    def authors_list():
+        input.upload_4tu()
+        with reactive.isolate():
+            authors_list = []
+            files_names = files_names_noext()
+            for i,file_name in enumerate(files_names):
+                art_authors = []
+                authors_input = eval(f"input.{file_name}()") 
+                authors_input_list = authors_input.split(sep = ',')
+                authors_input_list_clean = list(map(str.strip, authors_input_list))
+                for author in authors_input_list_clean:
+                    info = {"name": author }
+                    print(info)
+                    art_authors.append(info)
+            authors_list.append(art_authors)
+
+
+
 
                           
-
 app = App(app_ui, server)
+
