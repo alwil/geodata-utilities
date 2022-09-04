@@ -227,9 +227,27 @@ def server(input, output, session):
                 authors_input_list_clean = list(map(str.strip, authors_input_list))
                 for author in authors_input_list_clean:
                     info = {"name": author }
-                    print(info)
                     art_authors.append(info)
             authors_list.append(art_authors)
+
+    @reactive.Effect
+    def test_files():
+        input.upload_4tu()
+        with reactive.isolate():
+            file_paths= [d['datapath'] for d in good_files_infos() if 'datapath' in d] 
+            retrieved_meta = []
+            article_meta = []
+            for i, file in enumerate(file_paths):
+                print('\n Preparing file ', i+1 , 'out of ', len(file_paths),'\n')
+                test_gef_anchor(file)
+            retrieved_meta.append(retrieve_metadata(file))
+            article_meta.append(compile_metadata(input.collection(), retrieved_meta[i], authors_list[i], input.sandbox() ))
+            article_url = create_article(api_url, article_meta[i], input.api_token() )
+            #article_doi = reserve_doi(article_url, api_token)
+            upload_dataset(article_url, input.api_token(), file)
+            #publish_article(article_url, api_token)
+            collection_url = add_to_collection( input.collection(), article_url, input.api_token(), input.sandbox())
+            #publish_collection( collection_url, api_token)
 
 
 
