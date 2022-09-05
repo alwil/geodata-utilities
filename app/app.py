@@ -6,6 +6,14 @@ choices = {"a": "Choice A", "b": "Choice B"}
 action_choices = {'upload': 'Upload files to 4TU repository', 'download': 'Browse and retrieve files from 4TU repository'}
 col_choices = {'grout': 'Grout Collection', 'xxx': 'xxx', 'yyy': 'yyy', 'zzz': 'zzz'}
 yn_choices = {'y':'Yes','n':'No'}
+filter_type = {
+    'testtype':   {'label':'Test type','filter':'choice', 'answers':['investigation','suitability','acceptance'] }, 
+    'anchortype': {'label':'Anchor type','filter':'choice', 'answers':['self-drilling','stranded','screw injection'] },
+    'location': {'label':'Location name','filter':'text'},
+    'locationx': {'label':'Location X','filter':'range'},
+    'locationy': {'label':'Location y','filter':'range'},
+    'timecov':{ 'label':'Time coverage','filter': 'daterange'}
+}
 
 valid_users = {'awilczynski', 'acryan', 'mvankoningsveld', 'fedorbaart'}
 check_show_ui = f"input.checkID && input.netid in  {valid_users}"
@@ -22,9 +30,6 @@ app_ui = ui.page_fluid(
     ui.panel_title("GEF files handler"),
 
 # ToDo 
-# 1) Isolate different parts of the sidebar menu https://shiny.rstudio.com/py/docs/reactive-events.html#controlling-reactivity-with-isolate-and-reactive.event
-# 2) Hide UI https://shiny.rstudio.com/py/docs/ui-dynamic.html#showing-and-hiding-ui
-# 3) Nice to have: dynamic UI (e.g. chnage question about API token)
 # 3) Nice to have: Progress bars: https://shiny.rstudio.com/py/docs/ui-feedback.html#progress-bars
 
     ui.layout_sidebar(
@@ -73,7 +78,8 @@ app_ui = ui.page_fluid(
              ),
 
             ui.nav("Download",
-             
+             ui.output_ui("ui_create_table"),
+             ui.output_table('table_collection'),
              )
 
             )    
@@ -176,8 +182,33 @@ def server(input, output, session):
         with reactive.isolate():
             if input.api_token() and input.sandbox() and input.collection() and auth_successful() == 'Authorisation Successful':
                 return( ui.input_file("file_upload", "Choose file(s) to upload:", multiple=True, accept = f".{file_format()}") )
-
     
+    @output
+    @render.ui
+    def ui_create_table():
+        input.sidebar_complete()
+        with reactive.isolate():
+            if input.api_token() and input.sandbox() and input.collection() and auth_successful() == 'Authorisation Successful':
+                return ui.TagList(
+                    ui.input_select('testype', filter_type['testtype']['label'], choices = filter_type['testtype']['answers'], multiple = True),
+                    ui.input_select('anchortype', filter_type['anchortype']['label'], choices = filter_type['anchortype']['answers'], multiple = True),
+                    ui.input_action_button('display_collection', "Show collection elements"))
+
+    @output
+    @render.table
+    @reactive.event(input.display_collection)
+    def table_collection():
+        article_ids = browse_collection(input.collection(), api_url(), input.api_token() )
+        if article_ids == None:
+            return('No table')
+        else:
+            article_details = get_article_details( article_ids, api_url(), input.api_token() )
+            article_printable = curate_article_details(article_details)
+            return(article_printable)
+
+ 
+
+
     @reactive.Calc
     def good_files_infos():
         if not input.file_upload():
@@ -208,10 +239,10 @@ def server(input, output, session):
             if not file_infos:
                 return
             file_names= [d['name'] for d in file_infos if 'name' in d] 
-            author_input_list = ui.TagList('Provide additional author names, separated by a coma:\n')   
+            author_input_list = ui.TagList('Provide additional author names, separated by a coma (if you are the sole author - leave empty):\n')   
             for i, file_name in enumerate(file_names):
                 author_input_list.append(ui.input_text(files_names_noext()[i], file_name, placeholder = 'Additional authors'))
-            author_input_list.append(ui.input_action_button('upload_4tu', 'Upload files'))
+            author_input_list.append(ui.input_action_button('upload_4tu', 'Push files to 4TU'))
             return(author_input_list)    
 
     @reactive.Calc
@@ -220,37 +251,64 @@ def server(input, output, session):
         with reactive.isolate():
             authors_list = []
             files_names = files_names_noext()
-            for i,file_name in enumerate(files_names):
+            for file_name in files_names:
                 art_authors = []
                 authors_input = eval(f"input.{file_name}()") 
-                authors_input_list = authors_input.split(sep = ',')
-                authors_input_list_clean = list(map(str.strip, authors_input_list))
-                for author in authors_input_list_clean:
-                    info = {"name": author }
-                    art_authors.append(info)
-            authors_list.append(art_authors)
+                if str.strip(authors_input) != '':
+                    authors_input_list = authors_input.split(sep = ',')
+                    authors_input_list_clean = list(map(str.strip, authors_input_list))
+                    print(f"authors list: {authors_input_list_clean},is it ''?: {authors_input_list_clean == [''] }" )
+                    for author in authors_input_list_clean:
+                        info = {"name": author }
+                        art_authors.append(info)
+                authors_list.append(art_authors)
+            return(authors_list)        
 
     @reactive.Effect
-    def test_files():
+    @reactive.event(input.upload_4tu)
+    def UPLOAD():
         input.upload_4tu()
         with reactive.isolate():
             file_paths= [d['datapath'] for d in good_files_infos() if 'datapath' in d] 
+            file_names= [d['name'] for d in good_files_infos()  if 'name' in d]
+            author_list =  authors_list()
             retrieved_meta = []
             article_meta = []
-            for i, file in enumerate(file_paths):
-                print('\n Preparing file ', i+1 , 'out of ', len(file_paths),'\n')
-                test_gef_anchor(file)
-            retrieved_meta.append(retrieve_metadata(file))
-            article_meta.append(compile_metadata(input.collection(), retrieved_meta[i], authors_list[i], input.sandbox() ))
-            article_url = create_article(api_url, article_meta[i], input.api_token() )
-            #article_doi = reserve_doi(article_url, api_token)
-            upload_dataset(article_url, input.api_token(), file)
-            #publish_article(article_url, api_token)
-            collection_url = add_to_collection( input.collection(), article_url, input.api_token(), input.sandbox())
-            #publish_collection( collection_url, api_token)
+            n_files = len(file_paths)
 
+            with ui.Progress( min = 0, max = n_files ) as p:
+                p.set(message="Computing", detail="This may take a while...")
+            
+                for i, file in enumerate(file_paths):   
+                    p.set(i,message=f"Preparing file {i+1} out of {n_files}", 
+                            detail="Testing GEF file standard...")
+                    
+                    print('\n Preparing file ', i+1 , 'out of ', n_files ,'\n')
+                    test_gef_anchor(file)
 
+                    p.set(i,detail="Compiling metadata from file...")
+                    retrieved_meta.append(retrieve_metadata(file))
+                    article_meta.append(compile_metadata(input.collection(), retrieved_meta[i], author_list[i], env_choice() ))
 
+                    p.set(i,detail="Creating article on 4TU...")
+                    article_url = create_article(api_url(), article_meta[i], input.api_token() )
+                    #article_doi = reserve_doi(article_url, api_token)
+                    if not article_url:
+                        return
+                
+                    p.set(i,detail="Uploading file on 4TU...")
+                    msg = upload_dataset(article_url, input.api_token(), file, file_names[i] )
+                    if msg == f"Couldn't upload file {file_names[i]}":
+                        msg_type = 'error'
+                    else:
+                        msg_type = 'message'
+
+                    ui.notification_show( msg,  type = msg_type )
+                    #publish_article(article_url, api_token)
+                
+                    p.set(i,detail="Adding dataset to the collection...")
+                    collection_url = add_to_collection( input.collection(), article_url, input.api_token(), env_choice())
+                #publish_collection( collection_url, api_token)
 
                           
 app = App(app_ui, server)

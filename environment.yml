@@ -6,4 +6,7 @@ dependencies:
   - python=3.9.7
   - requests
   - shiny
-
+  - r-maptools
+  - scikit-learn
+  - jinja2
+prefix: C:\Users\awilczynski\Anaconda3\envs\figshare_env

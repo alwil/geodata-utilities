@@ -12,6 +12,7 @@ from config import AW_KEY, AW_KEY_SAND
 from gefreader import Gef2OpenClass, is_number
 
 
+
 # Auxiliary functions
 def yes_no_input(user_input):
     '''

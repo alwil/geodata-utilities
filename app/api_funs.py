@@ -12,6 +12,14 @@ from operator import itemgetter
 from gefreader import Gef2OpenClass, is_number
 
 
+# ToDo 05/09: 
+# - create filters for the download
+# - switch own download functionality
+# - document all the things that are hardcoded / need to be adapted : collection names; collection IDs; categories; 
+# - Suggest adapting GEF files: add authors
+# - Document how to launch (conda env, shiny run etc.)
+# - Start working on a map
+
 # Auxiliary functions
 def yes_no_input(user_input):
     '''
@@ -78,6 +86,7 @@ def get_licences(api_url, api_token ):
         url = api_url+"account/licenses", # private licences list
         headers = {"Authorization": f"token {api_token}"}
         )
+
     
     # Retrun list of licences available together with thier IDs ( needed for metadata)   
     return(response.json() )
@@ -223,7 +232,6 @@ def get_token(env_choice):
   
     return(api_token)
 
-
 # Functions to upload files
 def get_file_path(collection_chosen):
     '''
@@ -243,9 +251,9 @@ def get_file_path(collection_chosen):
     file_path = input("Please provide the path to the files: ")
     coll_format = get_file_format(collection_chosen)
 
-    file_list =  []
+    #file_list =  []
     #If the path provided is a single file 
-    if os.path.isfile(file_path):       
+    if os.path.isfile(file):       
                 # If it 
                 if file_path.endswith(coll_format):
                         # Retrieve the file_name of the path
@@ -383,7 +391,6 @@ def retrieve_metadata(file):
     meta_names= ['title', 'description' , 'keywords' , 'date'  , 'location' , 'geo_lon' , 'geo_lat' , 'company' ]
 
     retrieved_dict = dict(zip(meta_names, retrieved_fields))
-
     return(retrieved_dict)
 
 def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice):
@@ -409,7 +416,6 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
    ''' 
    # Define metadata
    
-
    # 1. Title for the moment as an inputation - can be retrieved from the GEF file directly
    art_title = retrieved_dict['title']  #input('\nDataset title:')
    # 2. Licence
@@ -460,7 +466,6 @@ def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice)
                  "categories": art_categories, # <- this notation results in a 404 ( not found) response,
                  "authors": add_authors
                 }
-
    return(article_metadata)
               
 def create_article(api_url, metadata_dict, api_token):
@@ -479,6 +484,7 @@ def create_article(api_url, metadata_dict, api_token):
     article_url: str
         URL of the newly created article    
      '''
+   
     response = requests.post(
         url    = f"{api_url}/account/articles",
         data   = json.dumps(metadata_dict) ,
@@ -525,7 +531,7 @@ def reserve_doi(article_url, api_token):
 
     return(article_doi)
 
-def upload_dataset(article_url, api_token, file_path):
+def upload_dataset(article_url, api_token, file_path, file_name):
     '''
     Uploads file to a selected article
 
@@ -541,8 +547,8 @@ def upload_dataset(article_url, api_token, file_path):
     # Make sure that file exists 
     assert os.path.isfile(file_path), "Cannot access the file. Please verify the given path or try reconnecting to the drive"
     
-    # Retrieve the file_name of the path
-    file_name = os.path.basename(file_path)
+    # # Retrieve the file_name of the path
+    # file_name = os.path.basename(file_path)
 
     ## INITIATE UPLOAD / REGISTER A FILE
     file_size    = os.path.getsize(file_path) # checks size of file
@@ -638,9 +644,9 @@ def upload_dataset(article_url, api_token, file_path):
 
             
     if response.status_code == 202 :
-        print ("Upload of file ", file_path," complete" )
+        return(f"Upload of file {file_name} complete")
     else:
-        print ("Couldn't upload file.")
+        return(f"Couldn't upload file {file_name}")
 
 def publish_article(article_url, api_token):
     '''
@@ -935,7 +941,7 @@ def curate_article_details(article_details):
     'files',
     'categories',
     'authors',
-    'description',
+    #'description',
     'license.name',
     'doi',
     'Time coverage',
