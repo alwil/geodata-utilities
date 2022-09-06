@@ -14,7 +14,7 @@ from gefreader import Gef2OpenClass, is_number
 
 # ToDo 05/09: 
 # - create filters for the download
-# - switch own download functionality
+# - switch on download functionality
 # - document all the things that are hardcoded / need to be adapted : collection names; collection IDs; categories; 
 # - Suggest adapting GEF files: add authors
 # - Document how to launch (conda env, shiny run etc.)
@@ -671,9 +671,9 @@ def publish_article(article_url, api_token):
         )
 
     if response.status_code == 201: 
-         print ("Publishing request sent successfully.") 
+         return("Publishing request sent successfully.") 
     else:
-        print ("Couldn't publish the article.") 
+        return("Couldn't publish the article.") 
 
 def add_to_collection( collection_chosen, article_url, api_token, env_choice):
     '''
@@ -949,6 +949,20 @@ def curate_article_details(article_details):
     'Geolocation Longitude',
     'Geolocation Latitude'
     ]]
+
+    art.columns = ['title',
+    'id',
+    'published_date',
+    'files',
+    'categories',
+    'authors',
+    #'description',
+    'license',
+    'doi',
+    'time_cov',
+    'location',
+    'location_x',
+    'location_y']
 
     return(art)
 

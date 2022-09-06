@@ -1,4 +1,5 @@
 from shiny import App, render, ui, reactive
+from datetime import date
 from api_funs import *
 import os
 
@@ -6,9 +7,10 @@ choices = {"a": "Choice A", "b": "Choice B"}
 action_choices = {'upload': 'Upload files to 4TU repository', 'download': 'Browse and retrieve files from 4TU repository'}
 col_choices = {'grout': 'Grout Collection', 'xxx': 'xxx', 'yyy': 'yyy', 'zzz': 'zzz'}
 yn_choices = {'y':'Yes','n':'No'}
+sandbox_choices = {'y':'Sandbox','n':'Production'}
 filter_type = {
     'testtype':   {'label':'Test type','filter':'choice', 'answers':['investigation','suitability','acceptance'] }, 
-    'anchortype': {'label':'Anchor type','filter':'choice', 'answers':['self-drilling','stranded','screw injection'] },
+    'anchortype': {'label':'Anchor type','filter':'choice', 'answers':['self-drilling','stranded','screw injection']},
     'location': {'label':'Location name','filter':'text'},
     'locationx': {'label':'Location X','filter':'range'},
     'locationy': {'label':'Location y','filter':'range'},
@@ -170,7 +172,7 @@ def server(input, output, session):
             if verified:
                 return ui.TagList(
                     ui.input_select("collection", "Which collection are you interested in?", col_choices, selected = None),
-                    ui.input_radio_buttons("sandbox", "Do you want to continue in the Sandbox environment?", yn_choices, selected = None),
+                    ui.input_radio_buttons("sandbox", "Choose 4TUResearchData environment:", sandbox_choices, selected = None),
                     ui.input_text("api_token", "Provide API token:", placeholder="Enter token"),
                     ui.input_action_button("sidebar_complete", "Run")
                     )                   
@@ -181,18 +183,64 @@ def server(input, output, session):
         input.sidebar_complete()
         with reactive.isolate():
             if input.api_token() and input.sandbox() and input.collection() and auth_successful() == 'Authorisation Successful':
-                return( ui.input_file("file_upload", "Choose file(s) to upload:", multiple=True, accept = f".{file_format()}") )
+                return( ui.panel_well(
+                    ui.input_file("file_upload", "Choose file(s) to upload:", multiple=True, accept = f".{file_format()}") 
+                    )
+                )
     
     @output
     @render.ui
+    @reactive.event(input.sidebar_complete)
     def ui_create_table():
         input.sidebar_complete()
         with reactive.isolate():
             if input.api_token() and input.sandbox() and input.collection() and auth_successful() == 'Authorisation Successful':
                 return ui.TagList(
-                    ui.input_select('testype', filter_type['testtype']['label'], choices = filter_type['testtype']['answers'], multiple = True),
-                    ui.input_select('anchortype', filter_type['anchortype']['label'], choices = filter_type['anchortype']['answers'], multiple = True),
-                    ui.input_action_button('display_collection', "Show collection elements"))
+                    ui.panel_well(
+                    #ui.input_select('testype', filter_type['testtype']['label'], choices =  filter_type['testtype']['answers'], multiple = True),
+                    ui.input_checkbox('filter_dataset', 'Filter results'),
+                    #ui.panel_conditional("input.filter_dataset" , ui.input_checkbox_group('anchortype', filter_type['anchortype']['label'], choices =  filter_type['anchortype']['answers'], inline=True )),
+                    #ui.panel_conditional("input.filter_dataset" , ui.input_checkbox_group('testype', filter_type['testtype']['label'], choices =  filter_type['testtype']['answers'], inline=True )),
+                    #ui.panel_conditional("input.filter_dataset", ui.input_select('location', 'Location', choices = [''], selected = None)),
+                    ui.output_ui('time_cov'), # 
+                    #ui.output_ui('pub_date'),
+                    # ui.panel_conditional("input.filter_dataset", ui.input_date_range('pub_date', 'Published date:', start=date.today(),
+                    #                                                                   end=date.today(), separator='-' )),
+                    #ui.panel_conditional("input.filter_dataset" , ui.input_slider("lat", "Latitude",min=-180, max=180,  value=0)),
+                    #ui.panel_conditional("input.filter_dataset" , ui.input_slider("long", "Longitude",min=-90, max=90,  value=0)),
+                    ui.input_action_button('display_collection', "Show collection")
+                    )
+                )
+
+    @output
+    @render.ui
+    def time_cov():
+        if input.filter_dataset():
+            return ui.TagList(
+                ui.input_checkbox_group('anchortype', filter_type['anchortype']['label'], choices =  filter_type['anchortype']['answers'], inline=True ),
+                ui.input_checkbox_group('testype', filter_type['testtype']['label'], choices =  filter_type['testtype']['answers'], inline=True ),
+                ui.input_select('location', 'Location', choices = [''], selected = None),
+                ui.input_date_range('time_cov_ui', 
+                  'Time coverage:' ,
+                  start = '2010-01-01',
+                  end = '2050-01-01',
+                  min = '2010-01-01',
+                  max = '2050-01-01',
+                  startview="decade",
+                  separator='-' 
+                  ),
+                  
+                ui.input_date_range('pub_date_ui', 'Published date:', start = '2010-01-01', end = date.today(), separator='-' )
+                )
+
+    # @output
+    # @render.ui
+    # def pub_date():
+    #     if input.filter_dataset():
+    #         return(ui.input_date_range('pub_date_ui', 'Published date:', start=date.today(),
+    #                                     end=date.today(), startview="decade", separator='-' )
+    #                                     )                        
+
 
     @output
     @render.table
@@ -200,13 +248,13 @@ def server(input, output, session):
     def table_collection():
         article_ids = browse_collection(input.collection(), api_url(), input.api_token() )
         if article_ids == None:
-            return('No table')
+            ui.notification_show('No collection items found', type = 'warning')
+            return
         else:
             article_details = get_article_details( article_ids, api_url(), input.api_token() )
             article_printable = curate_article_details(article_details)
             return(article_printable)
 
- 
 
 
     @reactive.Calc
@@ -243,7 +291,7 @@ def server(input, output, session):
             for i, file_name in enumerate(file_names):
                 author_input_list.append(ui.input_text(files_names_noext()[i], file_name, placeholder = 'Additional authors'))
             author_input_list.append(ui.input_action_button('upload_4tu', 'Push files to 4TU'))
-            return(author_input_list)    
+            return( ui.panel_well(author_input_list) )   
 
     @reactive.Calc
     def authors_list():
@@ -263,6 +311,7 @@ def server(input, output, session):
                         art_authors.append(info)
                 authors_list.append(art_authors)
             return(authors_list)        
+
 
     @reactive.Effect
     @reactive.event(input.upload_4tu)
@@ -292,23 +341,44 @@ def server(input, output, session):
 
                     p.set(i,detail="Creating article on 4TU...")
                     article_url = create_article(api_url(), article_meta[i], input.api_token() )
-                    #article_doi = reserve_doi(article_url, api_token)
+                    
                     if not article_url:
+                        ui.notification_show(f"Couldn't create the dataset {file_names[i]}",  type = 'error' )
                         return
-                
+
+                    article_doi = reserve_doi(article_url, input.api_token())
+
+                    if not article_doi:
+                        msg_type = 'error'
+                        msg = "Couldn't reserve DOI"
+                    else:
+                        msg_type = 'message'
+                        msg = f"{file_names[i]}'s  DOI: {article_doi}"
+
+                    ui.notification_show(msg,  type = msg_type )
+    
                     p.set(i,detail="Uploading file on 4TU...")
                     msg = upload_dataset(article_url, input.api_token(), file, file_names[i] )
                     if msg == f"Couldn't upload file {file_names[i]}":
                         msg_type = 'error'
                     else:
                         msg_type = 'message'
-
                     ui.notification_show( msg,  type = msg_type )
-                    #publish_article(article_url, api_token)
+
+                   
+                    p.set(i,detail="Uploading file on 4TU...")
+                    msg = publish_article(article_url, input.api_token())
+
+                    if msg == "Couldn't publish the article.":
+                        msg_type = 'error'
+                    else:
+                        msg_type = 'message'
+                    ui.notification_show( msg,  type = msg_type )
+
                 
                     p.set(i,detail="Adding dataset to the collection...")
                     collection_url = add_to_collection( input.collection(), article_url, input.api_token(), env_choice())
-                #publish_collection( collection_url, api_token)
+                #publish_collection( collection_url, input.api_token())
 
                           
 app = App(app_ui, server)
