@@ -141,8 +141,7 @@ def server(input, output, session):
     @reactive.Calc
     def file_format():
         return( get_file_format(input.collection()) )
-    
-  
+     
     @reactive.Effect
     @reactive.event(input.sidebar_complete)
     def TokenError():
@@ -220,42 +219,57 @@ def server(input, output, session):
                 ui.input_checkbox_group('anchortype', filter_type['anchortype']['label'], choices =  filter_type['anchortype']['answers'], inline=True ),
                 ui.input_checkbox_group('testype', filter_type['testtype']['label'], choices =  filter_type['testtype']['answers'], inline=True ),
                 ui.input_select('location', 'Location', choices = [''], selected = None),
-                ui.input_date_range('time_cov_ui', 
-                  'Time coverage:' ,
-                  start = '2010-01-01',
-                  end = '2050-01-01',
-                  min = '2010-01-01',
-                  max = '2050-01-01',
-                  startview="decade",
-                  separator='-' 
-                  ),
-                  
-                ui.input_date_range('pub_date_ui', 'Published date:', start = '2010-01-01', end = date.today(), separator='-' )
+               # ui.input_date_range('time_cov_ui', 
+                #   'Time coverage:' ,
+                #   start = '2010-01-01',
+                #   end = '2050-01-01',
+                #   min = '2010-01-01',
+                #   max = '2050-01-01',
+                #   startview="decade",
+                #   separator='-' 
+                #   ),
+
+                #ui.input_date_range('pub_date_ui', 'Published date:', start = '2010-01-01', end = date.today(), separator='-' )
                 )
+         
+    @reactive.Calc
+    def article_ids():
+        article_ids = browse_collection(input.collection(), api_url(), input.api_token() )
+        return(article_ids)
+    
+    @reactive.Calc
+    def output_table():
+        if article_ids() == None:
+            #ui.notification_show('No collection items found', type = 'warning')
+            return
+        else:
+            article_details = get_article_details( article_ids(), api_url(), input.api_token() )
+            #article_printable = curate_article_details(article_details)
+            return(article_details)
 
-    # @output
-    # @render.ui
-    # def pub_date():
-    #     if input.filter_dataset():
-    #         return(ui.input_date_range('pub_date_ui', 'Published date:', start=date.today(),
-    #                                     end=date.today(), startview="decade", separator='-' )
-    #                                     )                        
-
+    # @reactive.Calc
+    # def testype():
+    
+    # @reactive.Effect
+    # def _():
+        # ui.update_select(
+        #     "anchortype",
+        #     choices=x,
+        #     selected=x[len(x) - 1] if len(x) > 0 else None,
+        #     )
 
     @output
     @render.table
     @reactive.event(input.display_collection)
     def table_collection():
-        article_ids = browse_collection(input.collection(), api_url(), input.api_token() )
-        if article_ids == None:
+        if article_ids() == None:
             ui.notification_show('No collection items found', type = 'warning')
             return
         else:
-            article_details = get_article_details( article_ids, api_url(), input.api_token() )
-            article_printable = curate_article_details(article_details)
+            #article_details = get_article_details( article_ids, api_url(), input.api_token() )
+            article_printable = curate_article_details(output_table())
+            #return(output_table())
             return(article_printable)
-
-
 
     @reactive.Calc
     def good_files_infos():
@@ -379,6 +393,7 @@ def server(input, output, session):
                     p.set(i,detail="Adding dataset to the collection...")
                     collection_url = add_to_collection( input.collection(), article_url, input.api_token(), env_choice())
                 #publish_collection( collection_url, input.api_token())
+
 
                           
 app = App(app_ui, server)

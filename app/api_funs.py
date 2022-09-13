@@ -925,6 +925,12 @@ def curate_article_details(article_details):
         tmp_categories = pd.json_normalize(article_details[article_details['id']==art_id].iloc[0]['categories'])[['title']]
         tmp_categoryname = ', '.join(tmp_categories["title"])
         categories.append(tmp_categoryname)
+
+        #keywords 
+        article_datails['tags']
+        keywords = re.compile(r'TESTTYPE= |ANCHORTYPE= |LOCATIONNAME= |LOCATIONX= |LOCATIONY= |LOCATIONZ= ')
+
+
           
     art = article_details.assign(files = file_names)   
     custom_fields_df = pd.concat(custom_fields_df)
