@@ -13,12 +13,13 @@ from gefreader import Gef2OpenClass, is_number
 
 
 # ToDo 05/09: 
-# - create filters for the download
+# - create filters for the download - update filters based on dataframe content
 # - switch on download functionality
-# - document all the things that are hardcoded / need to be adapted : collection names; collection IDs; categories; 
+# - document all the things that are hardcoded / need to be adapted : collection names; collection IDs; categories;  <- or moved to the config file
 # - Suggest adapting GEF files: add authors
 # - Document how to launch (conda env, shiny run etc.)
 # - Start working on a map
+# if
 
 # Auxiliary functions
 def yes_no_input(user_input):
@@ -926,10 +927,6 @@ def curate_article_details(article_details):
         tmp_categoryname = ', '.join(tmp_categories["title"])
         categories.append(tmp_categoryname)
 
-        #keywords 
-        article_datails['tags']
-        keywords = re.compile(r'TESTTYPE= |ANCHORTYPE= |LOCATIONNAME= |LOCATIONX= |LOCATIONY= |LOCATIONZ= ')
-
 
           
     art = article_details.assign(files = file_names)   
@@ -938,11 +935,49 @@ def curate_article_details(article_details):
     art = art.assign(authors = author_names)  
     art = art.assign(categories = categories)  
 
-    # Convert tags' list into coma separated string
-    art['keywords'] = [', '.join(map(str, l)) for l in art['tags']]
+   
+    #keywords 
+
+    # sort the lists of keywords
+    art['tags'] = [sorted(l, key=str.casefold) for l in art['tags']]
+    
+    # ceate a separate dataframe only with the datasets' keywords
+    tags_tmp = pd.DataFrame(art.tags.tolist(), index= art.index)
+
+    # extract the names of the metadata
+    tag_names = tags_tmp.apply(lambda x: x.str.extract(r'(^[A-Za-z]+)=', expand = False))
+    # get the metadata values (after '=')
+    tags_tmp = tags_tmp.apply(lambda x: x.str.extract(r'^[A-Za-z]+=([a-zA-Z0-9\-\.\,]+)', expand = False))
+    
+    # Remove any columns that do not follow the metadata pattern ('name=value')
+    tags_tmp = tags_tmp.dropna(axis=1, how='all')
+    
+    # change names to lower case
+    tag_names = tag_names.apply(lambda x: x.str.lower())
+    tag_names = tag_names.dropna(axis=1, how='all')
+    tag_names = tag_names.drop_duplicates()
+    
+    # if there's only one row in the dataset - 
+    if tag_names.shape[0] == 1:
+        tag_names = tag_names.iloc[0]
+        tags_tmp.columns = tag_names
+        art = pd.concat([art, tags_tmp], axis=1)
+        last_cols = tags_tmp.columns.values.tolist()  
+    # else add the 'keywords' variable
+    else: 
+        # Convert tags' list into coma separated string
+        art['keywords'] = [', '.join(map(str, l)) for l in art['tags']]
+        last_cols = ['keywords']
+
+    
+    # Get only the date from the date string
+    art["published_date"] = art["published_date"].map(lambda x: x[0:10])
+
+
 
     art = art[['title',
-    'id',
+    #'id',
+    #'keywords',
     'published_date',
     'files',
     'categories',
@@ -952,12 +987,12 @@ def curate_article_details(article_details):
     'doi',
     'Time coverage',
     'Geolocation',
-    'Geolocation Longitude',
-    'Geolocation Latitude'
-    ]]
+    'Geolocation Latitude',
+    'Geolocation Longitude']+last_cols]
 
     art.columns = ['title',
-    'id',
+    #'id',
+    #'keywords',
     'published_date',
     'files',
     'categories',
@@ -967,8 +1002,11 @@ def curate_article_details(article_details):
     'doi',
     'time_cov',
     'location',
-    'location_x',
-    'location_y']
+    'locationx',
+    'locationy'] + last_cols
+
+    # remove columns with duplicated names
+    art = art.loc[:,~art.columns.duplicated()].copy()
 
     return(art)
 

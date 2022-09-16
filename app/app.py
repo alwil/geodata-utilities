@@ -80,7 +80,8 @@ app_ui = ui.page_fluid(
              ),
 
             ui.nav("Download",
-             ui.output_ui("ui_create_table"),
+             ui.output_ui("ui_create_table"),          
+             ui.output_text('test'),
              ui.output_table('table_collection'),
              )
 
@@ -235,6 +236,7 @@ def server(input, output, session):
     @reactive.Calc
     def article_ids():
         article_ids = browse_collection(input.collection(), api_url(), input.api_token() )
+        print('Artcle IDs',article_ids)
         return(article_ids)
     
     @reactive.Calc
@@ -246,22 +248,9 @@ def server(input, output, session):
             article_details = get_article_details( article_ids(), api_url(), input.api_token() )
             #article_printable = curate_article_details(article_details)
             return(article_details)
-
-    # @reactive.Calc
-    # def testype():
-    
-    # @reactive.Effect
-    # def _():
-        # ui.update_select(
-        #     "anchortype",
-        #     choices=x,
-        #     selected=x[len(x) - 1] if len(x) > 0 else None,
-        #     )
-
-    @output
-    @render.table
-    @reactive.event(input.display_collection)
-    def table_collection():
+  
+    reactive.Calc
+    def printable_table():
         if article_ids() == None:
             ui.notification_show('No collection items found', type = 'warning')
             return
@@ -271,6 +260,23 @@ def server(input, output, session):
             #return(output_table())
             return(article_printable)
 
+    @output
+    @render.table
+    @reactive.event(input.display_collection)
+    def table_collection():
+        if article_ids() == None:
+            return
+        else:    
+            return(printable_table())
+
+    @output
+    @render.text 
+    @reactive.event(input.display_collection)
+    def test():
+        return(input.anchortype())
+       
+
+        
     @reactive.Calc
     def good_files_infos():
         if not input.file_upload():
