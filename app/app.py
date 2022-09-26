@@ -31,9 +31,6 @@ def verify_id(user_input, valid_users ):
 app_ui = ui.page_fluid(
     ui.panel_title("GEF files handler"),
 
-# ToDo 
-# 3) Nice to have: Progress bars: https://shiny.rstudio.com/py/docs/ui-feedback.html#progress-bars
-
     ui.layout_sidebar(
         ui.panel_sidebar(
             ui.input_text("netid", "Provide netID:", placeholder="Enter netID"), # isolate
@@ -80,8 +77,9 @@ app_ui = ui.page_fluid(
              ),
 
             ui.nav("Download",
-             ui.output_ui("ui_create_table"),          
+             ui.output_ui("ui_create_table"),   
              ui.output_text('test'),
+       
              ui.output_table('table_collection'),
              )
 
@@ -217,8 +215,10 @@ def server(input, output, session):
     def time_cov():
         if input.filter_dataset():
             return ui.TagList(
-                ui.input_checkbox_group('anchortype', filter_type['anchortype']['label'], choices =  filter_type['anchortype']['answers'], inline=True ),
-                ui.input_checkbox_group('testype', filter_type['testtype']['label'], choices =  filter_type['testtype']['answers'], inline=True ),
+                ui.input_checkbox_group('anchortype', filter_type['anchortype']['label'], choices =  filter_type['anchortype']['answers'], 
+                selected =  filter_type['anchortype']['answers'] ,inline=True ),
+                ui.input_checkbox_group('testype', filter_type['testtype']['label'], choices =  filter_type['testtype']['answers'], 
+                selected =  filter_type['testtype']['answers'], inline=True ),
                 ui.input_select('location', 'Location', choices = [''], selected = None),
                # ui.input_date_range('time_cov_ui', 
                 #   'Time coverage:' ,
@@ -256,9 +256,22 @@ def server(input, output, session):
             return
         else:
             #article_details = get_article_details( article_ids, api_url(), input.api_token() )
-            article_printable = curate_article_details(output_table())
+            art = curate_article_details(output_table())
+            if input.filter_dataset() : 
+                    article_printable = art[art.anchortype.isin(input.anchortype()) & art.testtype.isin(input.testype())]
+            else: 
+                article_printable = art 
             #return(output_table())
             return(article_printable)
+
+    @reactive.Effect
+    def _():
+        x = printable_table().location.unique().tolist()
+        ui.update_select(
+            "location",
+            choices=x,
+            selected=x[0],
+        )        
 
     @output
     @render.table
@@ -268,15 +281,8 @@ def server(input, output, session):
             return
         else:    
             return(printable_table())
-
-    @output
-    @render.text 
-    @reactive.event(input.display_collection)
-    def test():
-        return(input.anchortype())
        
-
-        
+     
     @reactive.Calc
     def good_files_infos():
         if not input.file_upload():
@@ -400,7 +406,11 @@ def server(input, output, session):
                     collection_url = add_to_collection( input.collection(), article_url, input.api_token(), env_choice())
                 #publish_collection( collection_url, input.api_token())
 
-
+    @output
+    @render.text 
+    @reactive.event(input.display_collection)
+    def test():
+        return(input.location())
                           
 app = App(app_ui, server)
 
