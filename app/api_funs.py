@@ -388,11 +388,17 @@ def retrieve_metadata(file):
             if companyid.search(line) != None:
                 company = line.rstrip('\n').replace('#COMPANYID= ',"")
     
+    # Figshare API doesn't accept long lon/lat numbers
+    geo_lat = str(round(float(geo_lat), 4))
+    geo_lon = str(round(float(geo_lon), 4))
+
+
     retrieved_fields = [art_title, art_description, art_keywords, art_date, art_location,geo_lon, geo_lat,  company ]
     meta_names= ['title', 'description' , 'keywords' , 'date'  , 'location' , 'geo_lon' , 'geo_lat' , 'company' ]
 
     retrieved_dict = dict(zip(meta_names, retrieved_fields))
     return(retrieved_dict)
+
 
 def compile_metadata(collection_chosen, retrieved_dict, add_authors, env_choice):
    ''' Function gathers the needed metadata ( not retrieved from GEF file ) and returns a json file needed for the POST request

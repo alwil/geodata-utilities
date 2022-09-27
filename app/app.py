@@ -234,12 +234,14 @@ def server(input, output, session):
                 )
          
     @reactive.Calc
+    # @reactive.event(input.sidebar_complete)
     def article_ids():
         article_ids = browse_collection(input.collection(), api_url(), input.api_token() )
         print('Artcle IDs',article_ids)
         return(article_ids)
     
     @reactive.Calc
+    # @reactive.event(input.sidebar_complete)
     def output_table():
         if article_ids() == None:
             #ui.notification_show('No collection items found', type = 'warning')
@@ -250,6 +252,7 @@ def server(input, output, session):
             return(article_details)
   
     reactive.Calc
+    # @reactive.event(input.sidebar_complete)
     def printable_table():
         if article_ids() == None:
             ui.notification_show('No collection items found', type = 'warning')
@@ -265,19 +268,27 @@ def server(input, output, session):
             return(article_printable)
 
     @reactive.Effect
+    # @reactive.event(input.filter_dataset)
     def _():
-        x = printable_table().location.unique().tolist()
-        ui.update_select(
-            "location",
-            choices=x,
-            selected=x[0],
-        )        
+        if article_ids() == None:
+            #ui.notification_show('No collection items found', type = 'warning')
+            print('update of location filter not possible')
+            return
+        else:
+            x = printable_table().location.unique().tolist()
+            print(f'Updating location filter with {x}')
+            ui.update_select(
+                "location",
+                choices=x,
+                selected=x[0] if len(x) > 0 else None,
+            )        
 
     @output
     @render.table
     @reactive.event(input.display_collection)
     def table_collection():
         if article_ids() == None:
+            ui.notification_show('No collection items found', type = 'warning')
             return
         else:    
             return(printable_table())
@@ -360,6 +371,10 @@ def server(input, output, session):
                     
                     print('\n Preparing file ', i+1 , 'out of ', n_files ,'\n')
                     test_gef_anchor(file)
+                    
+                    if not article_url:
+                        ui.notification_show(f"Couldn't create the dataset {file_names[i]}",  type = 'error' )
+                        return
 
                     p.set(i,detail="Compiling metadata from file...")
                     retrieved_meta.append(retrieve_metadata(file))

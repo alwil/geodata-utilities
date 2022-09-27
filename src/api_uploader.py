@@ -379,6 +379,11 @@ def retrieve_metadata(file):
                 geo_lat = line.rstrip('\n').replace('#LOCATIONX= ',"")
             if companyid.search(line) != None:
                 company = line.rstrip('\n').replace('#COMPANYID= ',"")
+        
+    # Figshare API doesn't accept long lon/lat numbers
+    geo_lat = str(round(float(geo_lat), 4))
+    geo_lon = str(round(float(geo_lon), 4))
+
     
     retrieved_fields = [art_title, art_description, art_keywords, art_date, art_location,geo_lon, geo_lat,  company ]
     meta_names= ['title', 'description' , 'keywords' , 'date'  , 'location' , 'geo_lon' , 'geo_lat' , 'company' ]
@@ -481,7 +486,7 @@ def create_article(api_url, metadata_dict, api_token):
         URL of the newly created article    
      '''
     response = requests.post(
-        url    = f"{api_url}/account/articles",
+        url    = f"{api_url}account/articles",
         data   = json.dumps(metadata_dict) ,
         headers = {
         "Authorization": f"token {api_token}",
