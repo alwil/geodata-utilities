@@ -1,6 +1,9 @@
 from shiny import App, render, ui, reactive
 from datetime import date
 from api_funs import *
+import ipyleaflet as L
+#from shinywidgets import output_widget, reactive_read, register_widget
+from htmltools import css
 import os
 
 choices = {"a": "Choice A", "b": "Choice B"}
@@ -10,7 +13,7 @@ yn_choices = {'y':'Yes','n':'No'}
 sandbox_choices = {'y':'Sandbox','n':'Production'}
 filter_type = {
     'testtype':   {'label':'Test type','filter':'choice', 'answers':['investigation','suitability','acceptance'] }, 
-    'anchortype': {'label':'Anchor type','filter':'choice', 'answers':['self-drilling','stranded','screw injection']},
+    'anchortype': {'label':'Anchor type','filter':'choice', 'answers':['self-drilling','stranded','screwinjection']},
     'location': {'label':'Location name','filter':'text'},
     'locationx': {'label':'Location X','filter':'range'},
     'locationy': {'label':'Location y','filter':'range'},
@@ -73,12 +76,12 @@ app_ui = ui.page_fluid(
             ui.nav("Upload",
              ui.output_ui("ui_filepath"),
              ui.output_ui("ui_which_authors"), 
-             ui.output_ui("ui_authors"),
+             #ui.output_ui("ui_authors"),
              ),
 
             ui.nav("Download",
              ui.output_ui("ui_create_table"),   
-             ui.output_text('test'),
+             # ui.output_text('test'),
        
              ui.output_table('table_collection'),
              )
@@ -219,7 +222,7 @@ def server(input, output, session):
                 selected =  filter_type['anchortype']['answers'] ,inline=True ),
                 ui.input_checkbox_group('testype', filter_type['testtype']['label'], choices =  filter_type['testtype']['answers'], 
                 selected =  filter_type['testtype']['answers'], inline=True ),
-                ui.input_select('location', 'Location', choices = [''], selected = None),
+                ui.input_select('location', 'Location', choices = [''], selected = None, multiple=True),
                # ui.input_date_range('time_cov_ui', 
                 #   'Time coverage:' ,
                 #   start = '2010-01-01',
@@ -264,14 +267,33 @@ def server(input, output, session):
                     article_printable = art[art.anchortype.isin(input.anchortype()) & art.testtype.isin(input.testype())]
             else: 
                 article_printable = art 
-            #return(output_table())
+            article_printable = article_printable.sort_values(by=['title'])
+
             return(article_printable)
 
+    reactive.Calc
+    # @reactive.event(input.sidebar_complete)
+    def final_printable():
+        if article_ids() == None:
+            ui.notification_show('No collection items found', type = 'warning')
+            return
+        else:
+            #article_details = get_article_details( article_ids, api_url(), input.api_token() )
+            art = printable_table()
+            x = input.location()
+
+            if input.filter_dataset() : 
+                    article_printable = art[art.location.isin(x if len(x) > 0 else art.location) ]
+            else: 
+                article_printable = art 
+            
+            article_printable = article_printable.sort_values(by=['title'])
+
+            return(article_printable)        
+
     @reactive.Effect
-    # @reactive.event(input.filter_dataset)
     def _():
         if article_ids() == None:
-            #ui.notification_show('No collection items found', type = 'warning')
             print('update of location filter not possible')
             return
         else:
@@ -291,7 +313,7 @@ def server(input, output, session):
             ui.notification_show('No collection items found', type = 'warning')
             return
         else:    
-            return(printable_table())
+            return(final_printable())
        
      
     @reactive.Calc
@@ -421,11 +443,11 @@ def server(input, output, session):
                     collection_url = add_to_collection( input.collection(), article_url, input.api_token(), env_choice())
                 #publish_collection( collection_url, input.api_token())
 
-    @output
-    @render.text 
-    @reactive.event(input.display_collection)
-    def test():
-        return(input.location())
+    # @output
+    # @render.text 
+    # @reactive.event(input.display_collection)
+    # def test():
+    #     return(input.location())
                           
 app = App(app_ui, server)
 
